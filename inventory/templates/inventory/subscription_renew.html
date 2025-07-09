@@ -1,0 +1,79 @@
+{% extends "inventory/base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="card mb-4 p-4 shadow">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Renew Your Subscription</h2>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5><i class="fas fa-exclamation-circle"></i> Subscription Status</h5>
+            {% if subscription.is_valid %}
+                <p>Your subscription is currently active and will expire on {{ subscription.end_date|date:"F j, Y" }}.</p>
+                <p>You have {{ subscription.days_remaining }} days remaining.</p>
+            {% else %}
+                <p class="text-danger"><strong>Your subscription has expired.</strong></p>
+                <p>You need an active subscription to access the application features.</p>
+            {% endif %}
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Subscription Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Plan:</span>
+                                <strong>Monthly Subscription</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Amount:</span>
+                                <strong>₹{{ subscription_price }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Period:</span>
+                                <span>1 Month</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <div class="form-group form-check">
+                        {{ form.auto_renew|add_class:"form-check-input" }}
+                        <label class="form-check-label" for="{{ form.auto_renew.id_for_label }}">
+                            {{ form.auto_renew.label }}
+                        </label>
+                        <small class="form-text text-muted">
+                            When enabled, you'll receive renewal reminders before your subscription expires.
+                        </small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg mt-3">Proceed to Payment</button>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Subscription Benefits</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <li class="list-group-item"><i class="fas fa-check text-success mr-2"></i> Unlimited model car inventory management</li>
+                            <li class="list-group-item"><i class="fas fa-check text-success mr-2"></i> Track orders and deliveries</li>
+                            <li class="list-group-item"><i class="fas fa-check text-success mr-2"></i> Rate and review sellers</li>
+                            <li class="list-group-item"><i class="fas fa-check text-success mr-2"></i> Collection value analytics</li>
+                            <li class="list-group-item"><i class="fas fa-check text-success mr-2"></i> Automated delivery notifications</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

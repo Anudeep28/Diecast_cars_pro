@@ -1,0 +1,103 @@
+{% extends "inventory/base.html" %}
+{% load debug_tags %}
+
+{% block content %}
+<div class="card mb-4 p-4 shadow">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">My Subscription</h2>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Subscription Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Status:</span>
+                                {% if subscription.is_valid %}
+                                    <span class="badge badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Expired</span>
+                                {% endif %}
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Start Date:</span>
+                                <span>{{ subscription.start_date|date:"F j, Y" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Expiration Date:</span>
+                                <span>{{ subscription.end_date|date:"F j, Y" }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Days Remaining:</span>
+                                <span>{{ subscription.days_remaining }} days</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Auto Renewal:</span>
+                                <span>{% if subscription.auto_renew %}Enabled{% else %}Disabled{% endif %}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Last Payment ID:</span>
+                                <span class="text-muted">{{ subscription.razorpay_payment_id|default:"N/A" }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if subscription.expiring_soon or not subscription.is_valid %}
+                <div class="mt-4">
+                    {% if subscription.expiring_soon %}
+                        <div class="alert alert-warning">
+                            <h5><i class="fas fa-exclamation-triangle"></i> Subscription Expiring Soon</h5>
+                            <p>Your subscription will expire in {{ subscription.days_remaining }} days.</p>
+                            <p>Please renew your subscription to avoid interruption of service.</p>
+                        </div>
+                    {% elif not subscription.is_valid %}
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-exclamation-circle"></i> Subscription Expired</h5>
+                            <p>Your subscription has expired. Please renew to continue using the application.</p>
+                        </div>
+                    {% endif %}
+                    
+                    <a href="{% url 'subscription_renew' %}" class="btn btn-primary btn-lg">Renew Subscription</a>
+                </div>
+                {% else %}
+                <div class="mt-4">
+                    <a href="{% url 'subscription_renew' %}" class="btn btn-outline-primary">Manage Subscription</a>
+                </div>
+                {% endif %}
+                
+                <!-- Debug Information -->
+                {% if debug_info %}
+                <div class="mt-4">
+                    <div class="card">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0">Debug Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="bg-light p-3">{{ debug_info|pprint }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Support</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>If you have any questions about your subscription, please contact our support team.</p>
+                        <a href="mailto:support@diecastcollector.com" class="btn btn-outline-primary btn-block">
+                            <i class="far fa-envelope"></i> Email Support
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

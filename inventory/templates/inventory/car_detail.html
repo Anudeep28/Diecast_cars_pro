@@ -1,0 +1,196 @@
+{% extends 'inventory/base.html' %}
+
+{% block title %}{{ car.model_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ car.model_name }}</h2>
+                <h5 class="text-muted">{{ car.manufacturer }} <span class="badge bg-secondary">Scale {{ car.scale }}</span></h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Item Details</h4>
+                        <table class="table">
+                            <tr>
+                                <th>Price:</th>
+                                <td>₹{{ car.price }}</td>
+                            </tr>
+                            <tr>
+                                <th>Shipping Cost:</th>
+                                <td>₹{{ car.shipping_cost }}</td>
+                            </tr>
+                            <tr>
+                                <th>Advance Payment:</th>
+                                <td>₹{{ car.advance_payment }}</td>
+                            </tr>
+                            <tr>
+                                <th>Remaining Payment:</th>
+                                <td>₹{{ car.remaining_payment }}</td>
+                            </tr>
+                            <tr>
+                                <th>Purchase Date:</th>
+                                <td>{{ car.purchase_date }}</td>
+                            </tr>
+                            <tr>
+                                <th>Delivery Due Date:</th>
+                                <td>{{ car.delivery_due_date }}</td>
+                            </tr>
+                            <tr>
+                                <th>Delivered Date:</th>
+                                <td>{% if car.delivered_date %}{{ car.delivered_date }}{% else %}<span class="text-muted">Not delivered yet</span>{% endif %}
+                            </tr>
+                            <tr>
+                                <th>Tracking ID:</th>
+                                <td>{% if car.tracking_id %}{{ car.tracking_id }}{% else %}<span class="text-muted">Not available</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th>Delivery Service:</th>
+                                <td>{% if car.delivery_service %}{{ car.delivery_service }}{% else %}<span class="text-muted">Not specified</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <th>Status:</th>
+                                <td>
+                                    <span class="badge {% if car.status == 'Purchased/Paid' %}bg-info{% elif car.status == 'Shipped' %}bg-warning{% elif car.status == 'Delivered' %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                                        {{ car.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>Seller Information</h4>
+                        <div class="border p-3 rounded">
+                            {{ car.seller_info|linebreaks }}
+                            
+                            {% if car.facebook_page %}
+                            <hr>
+                            <p>
+                                <strong>Facebook Page:</strong> 
+                                <a href="{% if 'http' in car.facebook_page %}{{ car.facebook_page }}{% elif '@' in car.facebook_page %}https://www.facebook.com/{{ car.facebook_page|cut:'@' }}{% else %}https://www.facebook.com/{{ car.facebook_page }}{% endif %}" target="_blank" class="text-primary">
+                                    {{ car.facebook_page }}
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if car.status == 'Delivered' and car.packaging_quality and car.product_quality %}
+                <div class="mt-4">
+                    <h4>Your Feedback</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Packaging Quality:</strong> 
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= car.packaging_quality %}
+                                    <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                    <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                ({{ car.packaging_quality }}/5)
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Product Quality:</strong> 
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= car.product_quality %}
+                                    <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                    <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                ({{ car.product_quality }}/5)
+                            </p>
+                        </div>
+                    </div>
+                    {% if car.feedback_notes %}
+                    <div class="border p-3 rounded bg-light">
+                        <h5>Notes:</h5>
+                        {{ car.feedback_notes|linebreaks }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="mt-4">
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+                    <a href="{% url 'car_update' car.pk %}" class="btn btn-primary">Edit</a>
+                    <a href="{% url 'car_delete' car.pk %}" class="btn btn-danger">Delete</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4>Update Status</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'update_status' car.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Current Status:</label>
+                        <select class="form-select" id="status" name="status">
+                            {% for status_value, status_label in car.STATUS_CHOICES %}
+                            <option value="{{ status_value }}" {% if car.status == status_value %}selected{% endif %}>{{ status_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">Update Status</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if car.status == 'Delivered' and not car.packaging_quality %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4>Add Feedback</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="packaging_quality" class="form-label">Packaging Quality:</label>
+                        <select class="form-select" id="packaging_quality" name="packaging_quality">
+                            <option value="">Select Rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="product_quality" class="form-label">Product Quality:</label>
+                        <select class="form-select" id="product_quality" name="product_quality">
+                            <option value="">Select Rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="feedback_notes" class="form-label">Notes:</label>
+                        <textarea class="form-control" id="feedback_notes" name="feedback_notes" rows="3"></textarea>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Submit Feedback</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

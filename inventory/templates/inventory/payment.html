@@ -1,0 +1,106 @@
+{% extends "inventory/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="card mb-4 p-4 shadow">
+    <div class="card-header bg-primary text-white">
+        <h2 class="mb-0">Complete Your Subscription</h2>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h5>Monthly Subscription - ₹{{ amount }} per month</h5>
+            <p>Thank you for registering! To complete your subscription, please make a payment below.</p>
+            <p>Once your payment is successful, your account will be activated and you'll be able to use all features of the application.</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Subscription Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Amount:</span>
+                                <strong>₹{{ amount }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Currency:</span>
+                                <span>{{ currency }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Period:</span>
+                                <span>1 Month</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Description:</span>
+                                <span>{{ description }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Payment</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <button id="pay-button" class="btn btn-primary btn-lg">Pay Now</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Razorpay integration script -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    document.getElementById('pay-button').onclick = function() {
+        var options = {
+            "key": "{{ razorpay_key_id }}",
+            "amount": "{{ amount|floatformat:2 }}00", // Convert to paise (smallest currency unit)
+            "currency": "{{ currency }}",
+            "name": "DiecastCollector Pro",
+            "description": "{{ description }}",
+            "order_id": "{{ order_id }}",
+            "handler": function (response) {
+                // Submit the form with Razorpay response
+                var form = document.createElement('form');
+                form.setAttribute('method', 'POST');
+                form.setAttribute('action', "{{ callback_url }}");
+                
+                // Add CSRF token
+                var csrfInput = document.createElement('input');
+                csrfInput.setAttribute('type', 'hidden');
+                csrfInput.setAttribute('name', 'csrfmiddlewaretoken');
+                csrfInput.setAttribute('value', '{{ csrf_token }}');
+                form.appendChild(csrfInput);
+                
+                // Add Razorpay response fields
+                for (var key in response) {
+                    var input = document.createElement('input');
+                    input.setAttribute('type', 'hidden');
+                    input.setAttribute('name', key);
+                    input.setAttribute('value', response[key]);
+                    form.appendChild(input);
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
+            },
+            "prefill": {
+                "name": "{{ user_name }}",
+                "email": "{{ user_email }}"
+            },
+            "theme": {
+                "color": "#3399cc"
+            }
+        };
+        var rzp1 = new Razorpay(options);
+        rzp1.open();
+    };
+</script>
+{% endblock %}

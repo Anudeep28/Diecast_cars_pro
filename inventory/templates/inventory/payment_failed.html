@@ -1,0 +1,22 @@
+{% extends "inventory/base.html" %}
+
+{% block content %}
+<div class="card mb-4 p-4 shadow">
+    <div class="card-header bg-danger text-white">
+        <h2 class="mb-0">Payment Failed</h2>
+    </div>
+    <div class="card-body text-center">
+        <div class="mb-4">
+            <i class="fas fa-times-circle fa-5x text-danger"></i>
+        </div>
+        <h4>Your payment was not successful.</h4>
+        <p class="lead mb-4">We couldn't process your payment at this time.</p>
+        <p>Please try again or contact support if you continue to have issues.</p>
+        
+        <div class="mt-4">
+            <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Try Again</a>
+            <a href="mailto:support@diecastcollector.com" class="btn btn-outline-primary btn-lg ml-2">Contact Support</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

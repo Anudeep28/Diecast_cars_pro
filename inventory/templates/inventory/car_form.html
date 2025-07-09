@@ -1,0 +1,296 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.cursor-pointer { cursor: pointer; }
+.hover-bg-light:hover { background-color: #f8f9fa; }
+.dropdown-list {
+    z-index: 1050;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+.input-group-text {
+    cursor: pointer;
+}
+.position-relative {
+    position: relative;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h2>{{ title }}</h2>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="{{ form.model_name.id_for_label }}" class="form-label">Model Name</label>
+                            <input type="text" name="{{ form.model_name.name }}" id="{{ form.model_name.id_for_label }}" 
+                                  class="form-control {% if form.model_name.errors %}is-invalid{% endif %}"
+                                  value="{{ form.model_name.value|default:'' }}">
+                            {% if form.model_name.errors %}
+                                <div class="invalid-feedback">{{ form.model_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label for="{{ form.manufacturer.id_for_label }}" class="form-label">Manufacturer</label>
+                            <input type="text" name="{{ form.manufacturer.name }}" id="{{ form.manufacturer.id_for_label }}" 
+                                  class="form-control {% if form.manufacturer.errors %}is-invalid{% endif %}"
+                                  value="{{ form.manufacturer.value|default:'' }}"
+                                  list="manufacturers-list" autocomplete="off">
+                            
+                            <datalist id="manufacturers-list">
+                                {% for manufacturer in form.manufacturers_list %}
+                                <option value="{{ manufacturer }}">{{ manufacturer }}</option>
+                                {% endfor %}
+                            </datalist>
+                            
+                            {% if form.manufacturer.errors %}
+                                <div class="invalid-feedback">{{ form.manufacturer.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Select from existing or type a new manufacturer</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="{{ form.scale.id_for_label }}" class="form-label">Scale</label>
+                            <select name="{{ form.scale.name }}" id="{{ form.scale.id_for_label }}" 
+                                   class="form-select {% if form.scale.errors %}is-invalid{% endif %}">
+                                {% for choice in form.scale.field.choices %}
+                                    <option value="{{ choice.0 }}" {% if form.scale.value == choice.0 %}selected{% endif %}>{{ choice.1 }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if form.scale.errors %}
+                                <div class="invalid-feedback">{{ form.scale.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.price.id_for_label }}" class="form-label">Price (₹)</label>
+                            <input type="number" step="0.01" name="{{ form.price.name }}" id="{{ form.price.id_for_label }}" 
+                                  class="form-control {% if form.price.errors %}is-invalid{% endif %}"
+                                  value="{{ form.price.value|default:'0' }}">
+                            {% if form.price.errors %}
+                                <div class="invalid-feedback">{{ form.price.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.shipping_cost.id_for_label }}" class="form-label">Shipping Cost (₹)</label>
+                            <input type="number" step="0.01" name="{{ form.shipping_cost.name }}" id="{{ form.shipping_cost.id_for_label }}" 
+                                  class="form-control {% if form.shipping_cost.errors %}is-invalid{% endif %}"
+                                  value="{{ form.shipping_cost.value|default:'0' }}">
+                            {% if form.shipping_cost.errors %}
+                                <div class="invalid-feedback">{{ form.shipping_cost.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.advance_payment.id_for_label }}" class="form-label">Advance Payment (₹)</label>
+                            <input type="number" step="0.01" name="{{ form.advance_payment.name }}" id="{{ form.advance_payment.id_for_label }}" 
+                                  class="form-control {% if form.advance_payment.errors %}is-invalid{% endif %}"
+                                  value="{{ form.advance_payment.value|default:'0' }}">
+                            {% if form.advance_payment.errors %}
+                                <div class="invalid-feedback">{{ form.advance_payment.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-text text-info mt-4">
+                                <i class="bi bi-info-circle"></i> Remaining payment will be auto-calculated as: Price + Shipping - Advance
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.purchase_date.id_for_label }}" class="form-label">Purchase Date</label>
+                            <input type="date" name="{{ form.purchase_date.name }}" id="{{ form.purchase_date.id_for_label }}" 
+                                  class="form-control {% if form.purchase_date.errors %}is-invalid{% endif %}"
+                                  value="{{ form.purchase_date.value|date:'Y-m-d'|default:'' }}">
+                            {% if form.purchase_date.errors %}
+                                <div class="invalid-feedback">{{ form.purchase_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Placeholder for balance -->
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.seller_name.id_for_label }}" class="form-label">Seller Name</label>
+                            <input type="text" name="{{ form.seller_name.name }}" id="{{ form.seller_name.id_for_label }}" 
+                                  class="form-control {% if form.seller_name.errors %}is-invalid{% endif %}"
+                                  value="{{ form.seller_name.value|default:'' }}"
+                                  list="sellers-list" autocomplete="off">
+                            
+                            <datalist id="sellers-list">
+                                {% for seller in form.sellers_list %}
+                                <option value="{{ seller }}">{{ seller }}</option>
+                                {% endfor %}
+                            </datalist>
+                            
+                            {% if form.seller_name.errors %}
+                                <div class="invalid-feedback">{{ form.seller_name.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Select from existing or type a new seller</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.delivery_due_date.id_for_label }}" class="form-label">Delivery Due Date</label>
+                            <input type="date" name="{{ form.delivery_due_date.name }}" id="{{ form.delivery_due_date.id_for_label }}" 
+                                  class="form-control {% if form.delivery_due_date.errors %}is-invalid{% endif %}"
+                                  value="{{ form.delivery_due_date.value|date:'Y-m-d'|default:'' }}">
+                            {% if form.delivery_due_date.errors %}
+                                <div class="invalid-feedback">{{ form.delivery_due_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.delivered_date.id_for_label }}" class="form-label">Delivered Date <small class="text-muted">(Optional)</small></label>
+                            <input type="date" name="{{ form.delivered_date.name }}" id="{{ form.delivered_date.id_for_label }}" 
+                                  class="form-control {% if form.delivered_date.errors %}is-invalid{% endif %}"
+                                  value="{{ form.delivered_date.value|date:'Y-m-d'|default:'' }}">
+                            {% if form.delivered_date.errors %}
+                                <div class="invalid-feedback">{{ form.delivered_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.tracking_id.id_for_label }}" class="form-label">Tracking ID <small class="text-muted">(Optional)</small></label>
+                            <input type="text" name="{{ form.tracking_id.name }}" id="{{ form.tracking_id.id_for_label }}" 
+                                  class="form-control {% if form.tracking_id.errors %}is-invalid{% endif %}"
+                                  value="{{ form.tracking_id.value|default:'' }}">
+                            {% if form.tracking_id.errors %}
+                                <div class="invalid-feedback">{{ form.tracking_id.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.delivery_service.id_for_label }}" class="form-label">Delivery Service <small class="text-muted">(Optional)</small></label>
+                            <input type="text" name="{{ form.delivery_service.name }}" id="{{ form.delivery_service.id_for_label }}" 
+                                  class="form-control {% if form.delivery_service.errors %}is-invalid{% endif %}"
+                                  value="{{ form.delivery_service.value|default:'' }}" 
+                                  placeholder="e.g. FedEx, DHL, India Post, etc.">
+                            {% if form.delivery_service.errors %}
+                                <div class="invalid-feedback">{{ form.delivery_service.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.status.id_for_label }}" class="form-label">Status</label>
+                        <select name="{{ form.status.name }}" id="{{ form.status.id_for_label }}" 
+                               class="form-select {% if form.status.errors %}is-invalid{% endif %}">
+                            {% for value, text in form.status.field.choices %}
+                                <option value="{{ value }}" {% if value == form.status.value|default:'' %}selected{% endif %}>{{ text }}</option>
+                            {% endfor %}
+                        </select>
+                        {% if form.status.errors %}
+                            <div class="invalid-feedback">{{ form.status.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.contact_mobile.id_for_label }}" class="form-label">Contact Mobile <small class="text-muted">(Optional)</small></label>
+                            <input type="text" name="{{ form.contact_mobile.name }}" id="{{ form.contact_mobile.id_for_label }}" 
+                                  class="form-control {% if form.contact_mobile.errors %}is-invalid{% endif %}"
+                                  value="{{ form.contact_mobile.value|default:'' }}">
+                            {% if form.contact_mobile.errors %}
+                                <div class="invalid-feedback">{{ form.contact_mobile.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.seller_info.id_for_label }}" class="form-label">Seller Information</label>
+                            <textarea name="{{ form.seller_info.name }}" id="{{ form.seller_info.id_for_label }}" rows="3"
+                                     class="form-control {% if form.seller_info.errors %}is-invalid{% endif %}">{{ form.seller_info.value|default:'' }}</textarea>
+                            {% if form.seller_info.errors %}
+                                <div class="invalid-feedback">{{ form.seller_info.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.website_url.id_for_label }}" class="form-label">Website URL <small class="text-muted">(Optional)</small></label>
+                            <input type="url" name="{{ form.website_url.name }}" id="{{ form.website_url.id_for_label }}" 
+                                  class="form-control {% if form.website_url.errors %}is-invalid{% endif %}"
+                                  value="{{ form.website_url.value|default:'' }}" 
+                                  placeholder="e.g. https://website.com or https://facebook.com/page">
+                            {% if form.website_url.errors %}
+                                <div class="invalid-feedback">{{ form.website_url.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.facebook_page.id_for_label }}" class="form-label">Facebook Page <small class="text-muted">(Optional)</small></label>
+                            <input type="text" name="{{ form.facebook_page.name }}" id="{{ form.facebook_page.id_for_label }}" 
+                                  class="form-control {% if form.facebook_page.errors %}is-invalid{% endif %}"
+                                  value="{{ form.facebook_page.value|default:'' }}" 
+                                  placeholder="e.g. @DiecastCollectorsIndia or facebook.com/DiecastCollectorsIndia">
+                            {% if form.facebook_page.errors %}
+                                <div class="invalid-feedback">{{ form.facebook_page.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <!-- Placeholder for future field -->
+                        </div>
+                    </div>
+
+
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Include Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Car form loaded with HTML5 datalists');
+        
+        // Debug manufacturer field and datalist
+        const manufacturerField = document.getElementById('id_manufacturer');
+        const manufacturerList = document.getElementById('manufacturers-list');
+        if (manufacturerField && manufacturerList) {
+            console.log('Manufacturer field found with datalist containing ' + 
+                         manufacturerList.options.length + ' options');
+        }
+        
+        // Debug seller field and datalist
+        const sellerField = document.getElementById('id_seller_name');
+        const sellerList = document.getElementById('sellers-list');
+        if (sellerField && sellerList) {
+            console.log('Seller field found with datalist containing ' + 
+                         sellerList.options.length + ' options');
+        }
+    });
+</script>
+{% endblock %}

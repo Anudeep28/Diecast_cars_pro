@@ -1,0 +1,150 @@
+{% extends 'inventory/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Your Diecast Collection</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="dashboard-stats card mb-3">
+            <div class="card-body">
+                <h4>Collection Value</h4>
+                <h2 class="text-primary">₹{{ total_value|floatformat:2 }}</h2>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-primary text-white py-1">
+                <h6 class="mb-0">Seller Ratings</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="small">Seller</th>
+                            <th class="text-end small">Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        {% for seller, data in seller_ratings.items %}
+                        <tr{% if data.has_overdue %} style="background-color:#f8d7da;font-weight:bold;"{% endif %}>
+                            <td>{{ seller }} {% if data.has_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}</td>
+                            <td class="text-end">{{ data.avg_rating }} ★ <span class="text-muted">({{ data.total_ratings }})</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center">No ratings yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Filter & Sort</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="Purchased/Paid" {% if selected_status == 'Purchased/Paid' %}selected{% endif %}>Purchased/Paid</option>
+                            <option value="Shipped" {% if selected_status == 'Shipped' %}selected{% endif %}>Shipped</option>
+                            <option value="Delivered" {% if selected_status == 'Delivered' %}selected{% endif %}>Delivered</option>
+                            <option value="Overdue" {% if selected_status == 'Overdue' %}selected{% endif %}>Overdue</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="manufacturer" class="form-label">Manufacturer</label>
+                        <select class="form-select" id="manufacturer" name="manufacturer">
+                            <option value="">All Manufacturers</option>
+                            {% for manufacturer in manufacturers %}
+                                <option value="{{ manufacturer }}" {% if selected_manufacturer == manufacturer %}selected{% endif %}>{{ manufacturer }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="sort_by" class="form-label">Sort By</label>
+                        <select class="form-select" id="sort_by" name="sort_by">
+                            <option value="-purchase_date" {% if selected_sort == '-purchase_date' %}selected{% endif %}>Purchase Date (Newest)</option>
+                            <option value="purchase_date" {% if selected_sort == 'purchase_date' %}selected{% endif %}>Purchase Date (Oldest)</option>
+                            <option value="-price" {% if selected_sort == '-price' %}selected{% endif %}>Price (High to Low)</option>
+                            <option value="price" {% if selected_sort == 'price' %}selected{% endif %}>Price (Low to High)</option>
+                            <option value="manufacturer" {% if selected_sort == 'manufacturer' %}selected{% endif %}>Manufacturer (A-Z)</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if cars %}
+<div class="row">
+    <div class="col-md-12">
+    <div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Model</th>
+                <th>Manufacturer</th>
+                <th class="d-none d-md-table-cell">Scale</th>
+                <th>Price</th>
+                <th class="d-none d-lg-table-cell">Shipping</th>
+                <th class="d-none d-lg-table-cell">Advance</th>
+                <th class="d-none d-lg-table-cell">Remaining</th>
+                <th class="d-none d-md-table-cell">Purchase Date</th>
+                <th class="d-none d-md-table-cell">Delivery Due</th>
+                <th class="d-none d-lg-table-cell">Delivered Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for car in cars %}
+            <tr>
+                <td>{{ car.model_name }}</td>
+                <td>{{ car.manufacturer }}</td>
+                <td class="d-none d-md-table-cell"><span class="badge bg-secondary">{{ car.scale }}</span></td>
+                <td>₹{{ car.price }}</td>
+                <td class="d-none d-lg-table-cell">₹{{ car.shipping_cost }}</td>
+                <td class="d-none d-lg-table-cell">₹{{ car.advance_payment }}</td>
+                <td class="d-none d-lg-table-cell">₹{{ car.remaining_payment }}</td>
+                <td class="d-none d-md-table-cell">{{ car.purchase_date }}</td>
+                <td class="d-none d-md-table-cell">{{ car.delivery_due_date }}</td>
+                <td class="d-none d-lg-table-cell">{% if car.delivered_date %}{{ car.delivered_date }}{% else %}<span class="text-muted">Not yet</span>{% endif %}</td>
+                <td>
+                    <span class="badge {% if car.status == 'Purchased/Paid' %}bg-info{% elif car.status == 'Shipped' %}bg-warning{% elif car.status == 'Delivered' %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                        {{ car.status }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{% url 'car_detail' car.pk %}" class="btn btn-sm btn-primary">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    No diecast cars in your collection yet. <a href="{% url 'car_create' %}" class="alert-link">Add your first one!</a>
+</div>
+{% endif %}
+{% endblock %}
