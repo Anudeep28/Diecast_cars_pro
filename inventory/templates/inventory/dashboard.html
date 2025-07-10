@@ -1,4 +1,5 @@
 {% extends 'inventory/base.html' %}
+{% load custom_filters %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -11,15 +12,74 @@
 
 <div class="row mb-4">
     <div class="col-md-4">
+        <!-- Collection Stats -->
         <div class="dashboard-stats card mb-3">
+            <div class="card-header bg-primary text-white py-2">
+                <h6 class="mb-0">Collection Overview</h6>
+            </div>
             <div class="card-body">
-                <h4>Collection Value</h4>
-                <h2 class="text-primary">₹{{ total_value|floatformat:2 }}</h2>
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <h6 class="text-muted mb-1">Collection Value</h6>
+                        <h3 class="text-primary mb-0">₹{{ total_value|floatformat:2 }}</h3>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h6 class="text-muted mb-1">Total Cars</h6>
+                        <h3 class="text-success mb-0">{{ total_cars }}</h3>
+                    </div>
+                    <div class="col-6">
+                        <h6 class="text-muted mb-1">Total Spent</h6>
+                        <h5 class="mb-0">₹{{ total_spent|floatformat:2 }}</h5>
+                    </div>
+                    <div class="col-6">
+                        <h6 class="text-muted mb-1">Avg. Price</h6>
+                        <h5 class="mb-0">₹{{ avg_price|floatformat:2 }}</h5>
+                    </div>
+                </div>
             </div>
         </div>
         
+        <!-- Status Distribution -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white py-2">
+                <h6 class="mb-0">Status Distribution</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-circle-fill text-info me-2"></i> Purchased/Paid</span>
+                        <span class="badge bg-info rounded-pill">{{ status_stats|get_item:'Purchased/Paid'|default:0 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-circle-fill text-warning me-2"></i> Shipped</span>
+                        <span class="badge bg-warning rounded-pill">{{ status_stats|get_item:'Shipped'|default:0 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-circle-fill text-success me-2"></i> Delivered</span>
+                        <span class="badge bg-success rounded-pill">{{ status_stats|get_item:'Delivered'|default:0 }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-circle-fill text-danger me-2"></i> Overdue</span>
+                        <span class="badge bg-danger rounded-pill">{{ status_stats|get_item:'Overdue'|default:0 }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Monthly Activity -->
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white py-2">
+                <h6 class="mb-0">Monthly Activity</h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Cars purchased this month</h6>
+                <h3 class="text-primary mb-0">{{ cars_this_month }}</h3>
+            </div>
+        </div>
+        
+        <!-- Seller Ratings -->
         <div class="card">
-            <div class="card-header bg-primary text-white py-1">
+            <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Seller Ratings</h6>
             </div>
             <div class="card-body p-0">
@@ -48,6 +108,81 @@
     </div>
     
     <div class="col-md-8">
+        <!-- Top Manufacturers & Scales -->  
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white py-2">
+                <h6 class="mb-0">Collection Insights</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Top Manufacturers -->
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3">Top Manufacturers</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Manufacturer</th>
+                                        <th class="text-end">Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in top_manufacturers %}
+                                    <tr>
+                                        <td>{{ item.manufacturer }}</td>
+                                        <td class="text-end">{{ item.count }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-center">No data available</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Most Common Scales -->
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3">Most Common Scales</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Scale</th>
+                                        <th class="text-end">Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in scale_counts %}
+                                    <tr>
+                                        <td>{{ item.scale }}</td>
+                                        <td class="text-end">{{ item.count }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-center">No data available</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Monthly Purchase Trends -->
+                {% if months %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">Monthly Purchase Trends</h6>
+                    <div class="purchase-chart" style="height: 200px;">
+                        <canvas id="purchaseChart"></canvas>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Filter & Sort -->
         <div class="card">
             <div class="card-header">
                 <h5>Filter & Sort</h5>
@@ -146,5 +281,47 @@
 <div class="alert alert-info" role="alert">
     No diecast cars in your collection yet. <a href="{% url 'car_create' %}" class="alert-link">Add your first one!</a>
 </div>
+{% endif %}
+
+{% if months %}
+<!-- Include Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the canvas element
+        const ctx = document.getElementById('purchaseChart').getContext('2d');
+        
+        // Parse the Django template variables
+        const months = JSON.parse('{{ months|safe|escapejs }}');
+        const purchaseCounts = JSON.parse('{{ purchase_counts|safe|escapejs }}');
+        
+        // Create the chart
+        const purchaseChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Cars Purchased',
+                    data: purchaseCounts,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
 {% endif %}
 {% endblock %}

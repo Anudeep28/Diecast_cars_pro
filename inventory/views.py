@@ -107,6 +107,61 @@ def dashboard(request):
                 'has_overdue': True
             }
     
+    # Calculate purchase statistics
+    all_cars = DiecastCar.objects.filter(user=request.user)
+    
+    # Total number of cars in collection
+    total_cars = all_cars.count()
+    
+    # Total cars by status
+    status_counts = all_cars.values('status').annotate(count=Count('id'))
+    status_stats = {item['status']: item['count'] for item in status_counts}
+    
+    # Cars purchased in current month and year
+    current_month = today.month
+    current_year = today.year
+    cars_this_month = all_cars.filter(purchase_date__month=current_month, purchase_date__year=current_year).count()
+    
+    # Total spending (price + shipping)
+    total_spending = all_cars.aggregate(
+        total_price=Sum('price'),
+        total_shipping=Sum('shipping_cost')
+    )
+    total_spent = (total_spending['total_price'] or 0) + (total_spending['total_shipping'] or 0)
+    
+    # Average price per car
+    avg_price = all_cars.aggregate(avg=Avg('price'))['avg'] or 0
+    
+    # Top manufacturers by count
+    manufacturer_counts = all_cars.values('manufacturer').annotate(count=Count('id')).order_by('-count')[:5]
+    
+    # Most common scales
+    scale_counts = all_cars.values('scale').annotate(count=Count('id')).order_by('-count')[:3]
+    
+    # Monthly purchase trends (last 6 months)
+    six_months_ago = today - timedelta(days=180)
+    from django.db.models.functions import ExtractMonth, ExtractYear
+    
+    monthly_purchases = all_cars.filter(purchase_date__gte=six_months_ago)\
+        .annotate(month=ExtractMonth('purchase_date'), year=ExtractYear('purchase_date'))\
+        .values('month', 'year')\
+        .annotate(count=Count('id'))\
+        .order_by('year', 'month')
+    
+    # Format for chart display
+    months = []
+    purchase_counts = []
+    
+    for item in monthly_purchases:
+        month_name = datetime(2000, int(item['month']), 1).strftime('%b')
+        months.append(f"{month_name} {int(item['year'])}")
+        purchase_counts.append(item['count'])
+        
+    # Convert to JSON for the template
+    import json
+    months_json = json.dumps(months)
+    purchase_counts_json = json.dumps(purchase_counts)
+    
     context = {
         'cars': cars,
         'total_value': total_value,
@@ -115,6 +170,16 @@ def dashboard(request):
         'selected_manufacturer': manufacturer_filter,
         'selected_sort': sort_by,
         'seller_ratings': dict(sorted(seller_ratings_dict.items(), key=lambda item: item[1]['avg_rating'], reverse=True)),
+        # New statistics
+        'total_cars': total_cars,
+        'status_stats': status_stats,
+        'cars_this_month': cars_this_month,
+        'total_spent': total_spent,
+        'avg_price': avg_price,
+        'top_manufacturers': manufacturer_counts,
+        'scale_counts': scale_counts,
+        'months': months_json,
+        'purchase_counts': purchase_counts_json
     }
     
     return render(request, 'inventory/dashboard.html', context)
