@@ -28,7 +28,7 @@ def dashboard(request):
     two_days_from_now = today + timedelta(days=2)
     
     # Find cars with delivery due in 2 days
-    upcoming_delivery = cars.filter(delivery_due_date=two_days_from_now, delivered_date__isnull=True, status__in=['Purchased/Paid', 'Shipped'])
+    upcoming_delivery = cars.filter(delivery_due_date=two_days_from_now, delivered_date__isnull=True, status__in=['Purchased/Paid', 'Shipped', 'Pre-Order'])
     for car in upcoming_delivery:
         messages.info(request, f'Delivery for {car.model_name} is due in 2 days!')
     
@@ -188,16 +188,15 @@ def dashboard(request):
 @login_required
 def car_create(request):
     if request.method == 'POST':
-        form = DiecastCarForm(request.POST, user=request.user)
+        form = DiecastCarForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             car = form.save(commit=False)
             car.user = request.user
             car.save()
-            messages.success(request, 'Diecast car added successfully!')
+            messages.success(request, 'Car added successfully!')
             return redirect('dashboard')
     else:
         form = DiecastCarForm(user=request.user)
-    
     return render(request, 'inventory/car_form.html', {'form': form, 'title': 'Add New Car'})
 
 # Update view
@@ -206,7 +205,7 @@ def car_update(request, pk):
     car = get_object_or_404(DiecastCar, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        form = DiecastCarForm(request.POST, instance=car, user=request.user)
+        form = DiecastCarForm(request.POST, request.FILES, instance=car, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, 'Diecast car updated successfully!')

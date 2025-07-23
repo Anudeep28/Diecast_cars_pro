@@ -85,7 +85,7 @@ class DiecastCarForm(forms.ModelForm):
     
     class Meta:
         model = DiecastCar
-        fields = ['model_name', 'manufacturer', 'scale', 'price', 'shipping_cost', 'advance_payment', 'purchase_date', 'seller_name', 'seller_info', 'contact_mobile', 'website_url', 'facebook_page', 'delivery_due_date', 'delivered_date', 'tracking_id', 'delivery_service', 'status']
+        fields = ['model_name', 'manufacturer', 'scale', 'price', 'shipping_cost', 'advance_payment', 'purchase_date', 'seller_name', 'seller_info', 'contact_mobile', 'website_url', 'facebook_page', 'delivery_due_date', 'delivered_date', 'tracking_id', 'delivery_service', 'status', 'image']
         widgets = {
             'purchase_date': forms.DateInput(attrs={'type': 'date'}),
             'delivery_due_date': forms.DateInput(attrs={'type': 'date'}),

@@ -33,7 +33,7 @@
                 <h2>{{ title }}</h2>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="row mb-3">
                         <div class="col-md-4">
@@ -252,7 +252,18 @@
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <!-- Placeholder for future field -->
+                            <label for="{{ form.image.id_for_label }}" class="form-label">Car Image <small class="text-muted">(Optional)</small></label>
+                            <input type="file" name="{{ form.image.name }}" id="{{ form.image.id_for_label }}" 
+                                  class="form-control {% if form.image.errors %}is-invalid{% endif %}" 
+                                  accept="image/*">
+                            {% if form.image.errors %}
+                                <div class="invalid-feedback">{{ form.image.errors.0 }}</div>
+                            {% endif %}
+                            {% if form.instance.image %}
+                                <div class="mt-2">
+                                    <p>Current image: <a href="{{ form.instance.image.url }}" target="_blank">View</a></p>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 

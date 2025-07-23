@@ -4,14 +4,25 @@ from django.utils import timezone
 from django.db.models import F
 from datetime import timedelta
 import uuid
+import os
 
 # Create your models here.
+
+def car_image_upload_path(instance, filename):
+    # Get the file extension
+    ext = filename.split('.')[-1]
+    # Generate a new filename using the car's model name and manufacturer
+    new_filename = f"{instance.model_name}_{instance.manufacturer}_{uuid.uuid4().hex}.{ext}"
+    # Return the upload path
+    return os.path.join('car_images', new_filename)
 class DiecastCar(models.Model):
     STATUS_CHOICES = [
         ('Purchased/Paid', 'Purchased/Paid'),
         ('Shipped', 'Shipped'),
         ('Delivered', 'Delivered'),
         ('Overdue', 'Overdue'),
+        ('Pre-Order', 'Pre-Order'),
+        ('Commented Sold', 'Commented Sold'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='diecast_cars')
@@ -39,9 +50,39 @@ class DiecastCar(models.Model):
     packaging_quality = models.IntegerField(choices=[(i, i) for i in range(1, 6)], null=True, blank=True)
     product_quality = models.IntegerField(choices=[(i, i) for i in range(1, 6)], null=True, blank=True)
     
+    # Image field
+    image = models.ImageField(upload_to=car_image_upload_path, null=True, blank=True, help_text='Upload an image of your model car')
+    
     def save(self, *args, **kwargs):
         # Auto-calculate remaining payment
         self.remaining_payment = self.price + self.shipping_cost - self.advance_payment
+        
+        # Auto-update status based on payment and delivery due date
+        today = timezone.now().date()
+        
+        # If delivered_date is set, update status to 'Delivered'
+        if self.delivered_date is not None:
+            self.status = 'Delivered'
+            # Skip other status checks if the car is delivered
+        # Otherwise, set status based on advance payment and delivery date
+        elif self.advance_payment == 0:
+            # No advance payment means 'Commented Sold'
+            self.status = 'Commented Sold'
+        elif self.advance_payment > 0 and self.advance_payment < self.price + self.shipping_cost:
+            # Partial payment means 'Pre-Order'
+            self.status = 'Pre-Order'
+        else:
+            # Full payment or delivery date logic
+            # If delivery due date is in the past and car hasn't been delivered yet
+            if self.delivery_due_date < today and not self.delivered_date and self.status not in ['Delivered']:
+                self.status = 'Overdue'
+            # If delivery due date is in the future and current status is Overdue, reset to Purchased/Paid
+            elif self.delivery_due_date >= today and self.status == 'Overdue':
+                self.status = 'Purchased/Paid'
+            # If status is not already set and full payment is made
+            elif self.advance_payment >= self.price + self.shipping_cost and self.status not in ['Shipped', 'Delivered']:
+                self.status = 'Purchased/Paid'
+            
         super().save(*args, **kwargs)
         
     def __str__(self):

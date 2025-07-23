@@ -18,7 +18,7 @@ class Command(BaseCommand):
         # Check for cars with delivery due in 3 days
         upcoming_delivery = DiecastCar.objects.filter(
             delivery_due_date=three_days_from_now, 
-            status__in=['Purchased/Paid', 'Shipped']
+            status__in=['Purchased/Paid', 'Shipped', 'Pre-Order']
         )
         
         for car in upcoming_delivery:
@@ -33,7 +33,7 @@ class Command(BaseCommand):
         # Check for overdue cars
         overdue_cars = DiecastCar.objects.filter(
             delivery_due_date__lt=today,
-            status__in=['Purchased/Paid', 'Shipped']
+            status__in=['Purchased/Paid', 'Shipped', 'Pre-Order']
         )
         
         for car in overdue_cars:

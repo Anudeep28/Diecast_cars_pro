@@ -10,6 +10,11 @@
                 <h2>{{ car.model_name }}</h2>
                 <h5 class="text-muted">{{ car.manufacturer }} <span class="badge bg-secondary">Scale {{ car.scale }}</span></h5>
             </div>
+            {% if car.image %}
+            <div class="text-center p-3">
+                <img src="{{ car.image.url }}" alt="{{ car.model_name }}" class="img-fluid rounded" style="max-height: 300px;">
+            </div>
+            {% endif %}
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
