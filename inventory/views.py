@@ -68,6 +68,9 @@ def dashboard(request):
     # Get unique manufacturers for filter dropdown
     manufacturers = cars.values_list('manufacturer', flat=True).distinct()
     
+    # Get all available status choices for filter dropdown
+    status_choices = DiecastCar.STATUS_CHOICES
+    
     # Calculate average ratings for each seller
     seller_ratings = DiecastCar.objects.filter(user=request.user)\
         .exclude(product_quality__isnull=True)\
@@ -179,7 +182,9 @@ def dashboard(request):
         'top_manufacturers': manufacturer_counts,
         'scale_counts': scale_counts,
         'months': months_json,
-        'purchase_counts': purchase_counts_json
+        'purchase_counts': purchase_counts_json,
+        # Status choices for filter dropdown
+        'status_choices': status_choices
     }
     
     return render(request, 'inventory/dashboard.html', context)
