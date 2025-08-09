@@ -39,6 +39,41 @@
             </div>
         </div>
         
+        <!-- Market Portfolio -->
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white py-2">
+                <h6 class="mb-0">Market Portfolio</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <h6 class="text-muted mb-1">Market Value</h6>
+                        <h3 class="text-success mb-0">₹{{ market_current_total|floatformat:2 }}</h3>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h6 class="text-muted mb-1">Change (30d)</h6>
+                        {% if market_change_pct is not None %}
+                            <h5 class="mb-0 {% if market_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">{{ market_change_pct }}%</h5>
+                        {% else %}
+                            <h6 class="text-muted mb-0">N/A</h6>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if rarity_alerts %}
+                <hr>
+                <h6 class="text-muted">Rarity Alerts</h6>
+                <ul class="small mb-0">
+                    {% for alert in rarity_alerts %}
+                        <li>
+                            <a href="{% url 'car_detail' alert.car.pk %}">{{ alert.car.model_name }}</a>:
+                            +{{ alert.change_pct }}% ({{ alert.marketplace }})
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Status Distribution -->
         <div class="card mb-3">
             <div class="card-header bg-primary text-white py-2">

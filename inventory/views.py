@@ -10,7 +10,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta, datetime
-from .models import DiecastCar, Subscription
+from .models import DiecastCar, Subscription, MarketPrice
 from .forms import DiecastCarForm, FeedbackForm, UserRegistrationForm, SubscriptionForm
 from .razorpay_client import RazorpayClient
 
@@ -134,6 +134,31 @@ def dashboard(request):
     
     # Average price per car
     avg_price = all_cars.aggregate(avg=Avg('price'))['avg'] or 0
+
+    # Market value metrics
+    market_current_total = 0
+    market_previous_total = 0
+    rarity_alerts = []
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    for car in all_cars:
+        latest = MarketPrice.objects.filter(car=car).order_by('-fetched_at').first()
+        if latest:
+            market_current_total += float(latest.price)
+            # Previous = closest before 30 days ago, else the second latest
+            prev = MarketPrice.objects.filter(car=car, fetched_at__lte=thirty_days_ago).order_by('-fetched_at').first()
+            if not prev:
+                second = list(MarketPrice.objects.filter(car=car).order_by('-fetched_at')[:2])
+                prev = second[1] if len(second) == 2 else None
+            if prev and float(prev.price) > 0:
+                market_previous_total += float(prev.price)
+                change_pct = ((float(latest.price) - float(prev.price)) / float(prev.price)) * 100.0
+                if change_pct >= 40.0:
+                    rarity_alerts.append({
+                        'car': car,
+                        'change_pct': round(change_pct, 1),
+                        'latest_price': latest.price,
+                        'marketplace': latest.get_marketplace_display(),
+                    })
     
     # Top manufacturers by count
     manufacturer_counts = all_cars.values('manufacturer').annotate(count=Count('id')).order_by('-count')[:5]
@@ -165,6 +190,10 @@ def dashboard(request):
     months_json = json.dumps(months)
     purchase_counts_json = json.dumps(purchase_counts)
     
+    market_change_pct = None
+    if market_previous_total > 0:
+        market_change_pct = round(((market_current_total - market_previous_total) / market_previous_total) * 100.0, 2)
+
     context = {
         'cars': cars,
         'total_value': total_value,
@@ -179,6 +208,11 @@ def dashboard(request):
         'cars_this_month': cars_this_month,
         'total_spent': total_spent,
         'avg_price': avg_price,
+        # Market
+        'market_current_total': market_current_total,
+        'market_previous_total': market_previous_total,
+        'market_change_pct': market_change_pct,
+        'rarity_alerts': rarity_alerts,
         'top_manufacturers': manufacturer_counts,
         'scale_counts': scale_counts,
         'months': months_json,
@@ -249,7 +283,26 @@ def car_detail(request, pk):
     else:
         feedback_form = None
     
-    return render(request, 'inventory/car_detail.html', {'car': car, 'feedback_form': feedback_form})
+    # Market data for this car
+    market_qs = MarketPrice.objects.filter(car=car).order_by('-fetched_at')
+    market_latest = market_qs.first()
+    market_previous = market_qs[1] if market_qs.count() > 1 else None
+    market_change_pct = None
+    if market_latest and market_previous and float(market_previous.price) > 0:
+        market_change_pct = round(((float(market_latest.price) - float(market_previous.price)) / float(market_previous.price)) * 100.0, 2)
+    price_history = list(market_qs[:10])
+    market_links = list(car.market_links.all())
+    
+    context = {
+        'car': car,
+        'feedback_form': feedback_form,
+        'market_latest': market_latest,
+        'market_previous': market_previous,
+        'market_change_pct': market_change_pct,
+        'price_history': price_history,
+        'market_links': market_links,
+    }
+    return render(request, 'inventory/car_detail.html', context)
 
 # Update status view
 @login_required

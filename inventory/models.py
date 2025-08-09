@@ -88,6 +88,10 @@ class DiecastCar(models.Model):
     def __str__(self):
         return f"{self.model_name} by {self.manufacturer}"
     
+    # Convenience: latest known market price across sources
+    def latest_market_price(self):
+        return MarketPrice.objects.filter(car=self).order_by('-fetched_at').first()
+    
     class Meta:
         ordering = ['-purchase_date']
 
@@ -131,3 +135,41 @@ class Subscription(models.Model):
         if not self.is_valid:
             return False
         return 0 < self.days_remaining <= 7
+
+# Marketplace integration models
+MARKETPLACE_CHOICES = [
+    ('ebay', 'eBay'),
+    ('hobbydb', 'hobbyDB'),
+    ('diecast_auction', 'Diecast Auction'),
+]
+
+
+class CarMarketLink(models.Model):
+    car = models.ForeignKey(DiecastCar, on_delete=models.CASCADE, related_name='market_links')
+    marketplace = models.CharField(max_length=32, choices=MARKETPLACE_CHOICES)
+    external_id = models.CharField(max_length=255, help_text='Marketplace identifier (item ID, slug, etc.)')
+    url = models.URLField(max_length=500, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.car} @ {self.marketplace}: {self.external_id}"
+
+
+class MarketPrice(models.Model):
+    car = models.ForeignKey(DiecastCar, on_delete=models.CASCADE, related_name='market_prices')
+    marketplace = models.CharField(max_length=32, choices=MARKETPLACE_CHOICES)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=8, default='INR')
+    fetched_at = models.DateTimeField(default=timezone.now, db_index=True)
+    source_listing_url = models.URLField(max_length=500, blank=True, null=True)
+    title = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-fetched_at']
+        indexes = [
+            models.Index(fields=['car', 'marketplace', 'fetched_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.car} {self.marketplace} {self.price} {self.currency} @ {self.fetched_at}"

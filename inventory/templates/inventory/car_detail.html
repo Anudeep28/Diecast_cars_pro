@@ -133,6 +133,91 @@
     </div>
 
     <div class="col-md-4">
+        <!-- Market Data -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Market Value</h4>
+            </div>
+            <div class="card-body">
+                {% if market_latest %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="text-muted">Latest</div>
+                        <div><strong>₹{{ market_latest.price }}</strong> <span class="badge bg-secondary">{{ market_latest.get_marketplace_display }}</span></div>
+                    </div>
+                    {% if market_previous %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="text-muted">Previous</div>
+                        <div>₹{{ market_previous.price }} <span class="badge bg-light text-dark">{{ market_previous.get_marketplace_display }}</span></div>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted">Change</div>
+                        {% if market_change_pct is not None %}
+                        <div class="{% if market_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ market_change_pct }}%
+                        </div>
+                        {% else %}
+                        <div class="text-muted">N/A</div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">No market data yet. Use the update command to fetch/simulate prices.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Marketplace Links -->
+        {% if market_links %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Marketplace Links</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for link in market_links %}
+                    <li>
+                        <span class="badge bg-secondary">{{ link.get_marketplace_display }}</span>
+                        {% if link.url %}
+                            <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.external_id }}</a>
+                        {% else %}
+                            {{ link.external_id }}
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Price History -->
+        {% if price_history %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Recent Market History</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="small">Date</th>
+                            <th class="small">Marketplace</th>
+                            <th class="text-end small">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mp in price_history %}
+                        <tr>
+                            <td class="small">{{ mp.fetched_at|date:'Y-m-d H:i' }}</td>
+                            <td class="small">{{ mp.get_marketplace_display }}</td>
+                            <td class="text-end">₹{{ mp.price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card">
             <div class="card-header">
                 <h4>Update Status</h4>
