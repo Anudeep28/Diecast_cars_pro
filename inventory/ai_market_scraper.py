@@ -195,7 +195,13 @@ async def _extract_from_url(url: str, api_token: str) -> Tuple[List[PriceItem], 
         return [], markdown_content
 
     logger.info(f"Extracted data type: {type(data)}")
-    logger.info(f"Extracted data preview: {str(data)[:500]}...")
+    try:
+        # Use repr() instead of str() and handle potential serialization issues
+        preview = repr(data)[:200] if data is not None else "None"
+        logger.info(f"Extracted data preview: {preview}...")
+    except Exception:
+        # Skip logging preview if it causes issues
+        logger.info("Could not generate data preview - skipping")
 
     try:
         items = []
