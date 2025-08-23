@@ -353,6 +353,11 @@ def search_market_prices_for_car(car, api_token: str, num_results: int = 3) -> T
     scale = getattr(car, 'scale', '') or ''
 
     query = generate_search_query(manufacturer, model, scale, api_token)
+    
+    # Direct terminal output of the search query - guaranteed to be visible
+    print("\n" + "*" * 80)
+    print(f"GEMINI SEARCH QUERY: \"{query}\"")
+    print("*" * 80)
 
     urls: List[str] = []
     try:
