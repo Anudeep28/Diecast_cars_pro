@@ -1,0 +1,112 @@
+{
+  "car_id": 34,
+  "car_name": "Hotwheels Vespa 90ss super sprint",
+  "timestamp": "2025-08-17T13:53:26.921198+00:00",
+  "queries": [],
+  "results": [],
+  "extracted_content": {},
+  "final_prices": [
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 601,
+        "title": "Hot Wheels Vespa 90 SS Super Sprint 1966, Die-Cast Model, White, 1:64 Scale",
+        "price": 429.0,
+        "currency": "INR",
+        "url": "https://www.amazon.in/Hot-Wheels-Vespa-Sprint-Die-Cast/dp/B0FF3KJH96",
+        "original_price": 429.0,
+        "original_currency": "INR",
+        "model_name": "Vespa 90 SS Super Sprint 1966",
+        "manufacturer": "Hot Wheels",
+        "scale": "1:64",
+        "seller": "GAMES BABA™️",
+        "fetched_at": "2025-08-17T13:53:53.080616+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 602,
+        "title": null,
+        "price": 549.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 549.0,
+        "original_currency": "INR",
+        "model_name": null,
+        "manufacturer": "Zest 4 Toyz",
+        "scale": null,
+        "seller": "Amazon",
+        "fetched_at": "2025-08-17T13:53:53.084157+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 603,
+        "title": null,
+        "price": 894.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 894.0,
+        "original_currency": "INR",
+        "model_name": null,
+        "manufacturer": "FAMOUS QUALITY",
+        "scale": null,
+        "seller": "Amazon",
+        "fetched_at": "2025-08-17T13:53:53.087137+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 604,
+        "title": null,
+        "price": 1799.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 1799.0,
+        "original_currency": "INR",
+        "model_name": "CyberrTruck",
+        "manufacturer": "Invite Enterprise",
+        "scale": "1:32",
+        "seller": "Amazon",
+        "fetched_at": "2025-08-17T13:53:53.090674+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 605,
+        "title": "HOT WHEELS VESPA 90 SS SUPER SPRINT [1966] DIE-CAST TOY VEHICLE (Multicolor)",
+        "price": 370.0,
+        "currency": "INR",
+        "url": "https://www.flipkart.com/hot-wheels-vespa-90-ss-super-sprint-1966-die-cast-toy-vehicle/p/itm54a57edc5d8d8",
+        "original_price": 370.0,
+        "original_currency": "INR",
+        "model_name": "VESPA 90 SS SUPER SPRINT [1966]",
+        "manufacturer": "HOT WHEELS",
+        "scale": null,
+        "seller": "The Hobby Heaven Toys",
+        "fetched_at": "2025-08-17T13:53:53.093759+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 606,
+        "title": "Hot Wheels 1966 Vespa 90 SS Super Sprint Scooter (Uncarded)",
+        "price": 599.0,
+        "currency": "INR",
+        "url": "https://kinderlogs.in/products/hot-wheels-1966-vespa-90-ss-super-sprint-m-case?srsltid=AfmBOooJPpDHLY-NMBT8ae3grbMoDQPpUzzxp89xqL9Yx6VbCuWB6Tf8",
+        "original_price": 599.0,
+        "original_currency": "INR",
+        "model_name": "1966 Vespa 90 SS Super Sprint",
+        "manufacturer": "Hot Wheels",
+        "scale": "1:64",
+        "seller": "Kinder Logs",
+        "fetched_at": "2025-08-17T13:53:53.096763+00:00"
+      }
+    }
+  ]
+}

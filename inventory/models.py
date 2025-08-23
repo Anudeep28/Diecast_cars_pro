@@ -141,6 +141,8 @@ MARKETPLACE_CHOICES = [
     ('ebay', 'eBay'),
     ('hobbydb', 'hobbyDB'),
     ('diecast_auction', 'Diecast Auction'),
+    ('facebook', 'Facebook'),
+    ('web', 'Web Search'),
 ]
 
 

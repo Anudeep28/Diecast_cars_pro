@@ -1,0 +1,12 @@
+Django
+beautifulsoup4
+crawl4ai
+googlesearch-python
+requests
+django-cors-headers
+python-dotenv
+gunicorn
+psycopg2-binary
+forex-python
+pydantic>=2
+google-generativeai

@@ -1,51 +1,133 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
-from decimal import Decimal
-import random
+from inventory.models import DiecastCar
+from inventory.market_services import MarketService, convert_to_inr
+import logging
 
-from inventory.models import DiecastCar, MarketPrice
-from inventory.market_services import MarketService
+logger = logging.getLogger('inventory.management')
 
 
 class Command(BaseCommand):
-    help = "Fetch market prices for cars. Use --simulate to generate sample prices without calling external APIs."
+    help = 'Update market prices for diecast cars'
 
     def add_arguments(self, parser):
-        parser.add_argument('--user', type=str, help='Username to limit cars to a specific user')
-        parser.add_argument('--car-id', type=int, help='Specific DiecastCar ID to update')
-        parser.add_argument('--simulate', action='store_true', help='Generate simulated market prices')
+        parser.add_argument(
+            '--car-id',
+            type=int,
+            help='Update prices for a specific car ID',
+        )
+        parser.add_argument(
+            '--simulate',
+            action='store_true',
+            help='Simulate the update without saving to database',
+        )
+        parser.add_argument(
+            '--all',
+            action='store_true',
+            help='Update prices for all cars',
+        )
 
     def handle(self, *args, **options):
-        qs = DiecastCar.objects.all()
-        if options.get('user'):
-            qs = qs.filter(user__username=options['user'])
-        if options.get('car_id'):
-            qs = qs.filter(pk=options['car_id'])
+        car_id = options.get('car_id')
+        simulate = options.get('simulate', False)
+        update_all = options.get('all', False)
 
+        if car_id:
+            try:
+                car = DiecastCar.objects.get(id=car_id)
+                cars = [car]
+                self.stdout.write(f"Updating market prices for car {car_id}: {car}")
+            except DiecastCar.DoesNotExist:
+                raise CommandError(f'Car with ID {car_id} does not exist')
+        elif update_all:
+            cars = DiecastCar.objects.all()
+            self.stdout.write(f"Updating market prices for all {cars.count()} cars")
+        else:
+            raise CommandError('Please specify --car-id <ID> or --all')
+
+        if simulate:
+            self.stdout.write(self.style.WARNING('SIMULATION MODE - No data will be saved'))
+
+        market_service = MarketService()
+        total_updated = 0
         total_quotes = 0
-        svc = MarketService()
 
-        for car in qs:
-            if options.get('simulate'):
-                # Simulate between 1 and 3 quotes around purchase price with variance
-                base = float(car.price) if car.price else 1000.0
-                for marketplace in ['ebay', 'hobbydb', 'diecast_auction']:
-                    if random.random() < 0.8:  # 80% chance to generate a quote
-                        price = Decimal(str(round(base * random.uniform(0.8, 1.3), 2)))
-                        MarketPrice.objects.create(
-                            car=car,
-                            marketplace=marketplace,
-                            price=price,
-                            currency='INR',
-                            fetched_at=timezone.now(),
-                            source_listing_url=None,
-                            title=f"Simulated {marketplace.capitalize()} quote"
+        for car in cars:
+            self.stdout.write(f"\nProcessing car {car.id}: {car.model_name} by {car.manufacturer}")
+            
+            try:
+                # Fetch market data
+                if simulate:
+                    # For simulation, just fetch quotes without saving
+                    result = {
+                        'all_avg_price': None,
+                        'user_value': None,
+                        'source_averages': {},
+                        'per_source_quotes': {},
+                        'per_market_counts': {},
+                    }
+                    # Simulate by fetching quotes but not saving them
+                    service = MarketService()
+                    all_quotes = []
+                    for marketplace, provider in service.providers.items():
+                        try:
+                            link = car.market_links.filter(marketplace=marketplace).first()
+                            quotes = provider.fetch(car, link)
+                            all_quotes.extend(quotes)
+                            result['per_market_counts'][marketplace] = len(quotes)
+                        except Exception:
+                            result['per_market_counts'][marketplace] = 0
+                    
+                    if all_quotes:
+                        # Calculate average for simulation
+                        inr_prices = [convert_to_inr(q.price, q.currency) for q in all_quotes]
+                        result['all_avg_price'] = sum(inr_prices) / len(inr_prices) if inr_prices else None
+                else:
+                    # Normal operation - fetch and save
+                    result = market_service.fetch_and_record(car)
+                
+                quotes_count = sum(result.get('per_market_counts', {}).values())
+                total_quotes += quotes_count
+                
+                if quotes_count > 0:
+                    total_updated += 1
+                    avg_price = result.get('all_avg_price')
+                    if avg_price:
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"  ✓ Found {quotes_count} quotes, avg price: ₹{avg_price:.2f}"
+                            )
                         )
-                        total_quotes += 1
-                self.stdout.write(self.style.SUCCESS(f"Simulated quotes recorded for car {car.id}: {car.model_name}"))
-            else:
-                recorded = svc.fetch_and_record(car)
-                total_quotes += recorded
-                self.stdout.write(self.style.SUCCESS(f"Fetched {recorded} quotes for car {car.id}: {car.model_name}"))
+                    else:
+                        self.stdout.write(
+                            self.style.SUCCESS(f"  ✓ Found {quotes_count} quotes")
+                        )
+                else:
+                    self.stdout.write(
+                        self.style.WARNING(f"  ⚠ No quotes found")
+                    )
+                
+                # Show per-marketplace counts
+                market_counts = result.get('per_market_counts', {})
+                if market_counts:
+                    counts_str = ", ".join([f"{k}: {v}" for k, v in market_counts.items() if v > 0])
+                    if counts_str:
+                        self.stdout.write(f"    Sources: {counts_str}")
+                
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f"  ✗ Error processing car {car.id}: {str(e)}")
+                )
+                logger.exception(f"Error processing car {car.id}: {e}")
 
-        self.stdout.write(self.style.SUCCESS(f"Done. Total quotes recorded: {total_quotes}"))
+        # Summary
+        self.stdout.write(f"\n" + "="*50)
+        self.stdout.write(f"Summary:")
+        self.stdout.write(f"  Cars processed: {len(cars)}")
+        self.stdout.write(f"  Cars with quotes: {total_updated}")
+        self.stdout.write(f"  Total quotes found: {total_quotes}")
+        
+        if simulate:
+            self.stdout.write(self.style.WARNING("  (Simulation mode - no data saved)"))
+        else:
+            self.stdout.write(self.style.SUCCESS("  Market prices updated successfully!"))

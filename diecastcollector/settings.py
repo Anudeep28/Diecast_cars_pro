@@ -149,8 +149,53 @@ RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
 RAZORPAY_SUBSCRIPTION_PLAN_ID = 'plan_99rs_monthly'
 SUBSCRIPTION_AMOUNT = 9900  # Amount in paise (99 INR)
 
+# Market provider keys (set in .env)
+EBAY_APP_ID = os.environ.get('EBAY_APP_ID')
+HOBBYDB_API_KEY = os.environ.get('HOBBYDB_API_KEY')
+# Optional: Facebook cookie string for Marketplace scraping (risk: complies with FB TOS)
+FACEBOOK_COOKIE = os.environ.get('FACEBOOK_COOKIE')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+
 # Base URL for link generation in emails
 BASE_URL = 'http://localhost:8000'
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'inventory': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Email settings (configure these with your email provider)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development

@@ -1,19 +1,124 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple, Dict, Any
 from decimal import Decimal
 from django.utils import timezone
 from django.conf import settings
+from datetime import timedelta
+import logging
+import re
+from urllib.parse import urlencode
+import os
+import json
+
+import requests
+from bs4 import BeautifulSoup
+import time
 
 from .models import DiecastCar, CarMarketLink, MarketPrice
+from .market_types import MarketQuote
+from .web_search import search_and_extract_prices
+from .ai_market_scraper import search_market_prices_for_car as ai_search_market_prices_for_car
+from .search_logger import get_logger, save_all_logs
 
 
-@dataclass
-class MarketQuote:
-    marketplace: str
-    price: Decimal
-    currency: str = "USD"
-    source_listing_url: Optional[str] = None
-    title: Optional[str] = None
+# ---------------------
+# FX conversion helpers
+# ---------------------
+_FX_CACHE = {"ts": 0.0, "per_inr": {}}  # maps CURRENCY -> amount of that currency per 1 INR
+_FX_TTL_SECONDS = 3600
+
+_CURRENCY_MAP = {
+    '₹': 'INR', 'RS': 'INR', 'RS.': 'INR', 'INR': 'INR',
+    '$': 'USD', 'US$': 'USD', 'USD': 'USD',
+    '€': 'EUR', 'EUR': 'EUR',
+    '£': 'GBP', 'GBP': 'GBP',
+    '¥': 'JPY', 'JPY': 'JPY',
+    'C$': 'CAD', 'CAD': 'CAD',
+    'A$': 'AUD', 'AUD': 'AUD',
+    'SG$': 'SGD', 'SGD': 'SGD',
+    'RM': 'MYR', 'MYR': 'MYR',
+    'CNY': 'CNY', 'RMB': 'CNY',
+}
+
+
+def _normalize_currency(cur: Optional[str]) -> str:
+    if not cur:
+        return 'INR'
+    s = str(cur).strip()
+    if not s:
+        return 'INR'
+    up = s.upper()
+    if up in _CURRENCY_MAP:
+        return _CURRENCY_MAP[up]
+    # Single-symbol checks
+    if s in _CURRENCY_MAP:
+        return _CURRENCY_MAP[s]
+    # Common prefixes
+    if up.startswith('US$'):
+        return 'USD'
+    if up.startswith('RS'):
+        return 'INR'
+    return up  # assume it's already an ISO code like 'USD'
+
+
+def _get_per_inr_rates() -> dict:
+    now = time.time()
+    if now - _FX_CACHE["ts"] > _FX_TTL_SECONDS or not _FX_CACHE["per_inr"]:
+        try:
+            resp = requests.get('https://api.exchangerate.host/latest?base=INR', timeout=8)
+            resp.raise_for_status()
+            data = resp.json() or {}
+            rates = data.get('rates') or {}
+            per_inr = {}
+            for code, val in rates.items():
+                try:
+                    per_inr[code.upper()] = Decimal(str(val))
+                except Exception:  # noqa: BLE001
+                    continue
+            if per_inr:
+                _FX_CACHE["per_inr"] = per_inr
+                _FX_CACHE["ts"] = now
+        except Exception:  # noqa: BLE001
+            # leave cache as-is; fallbacks handled in convert
+            pass
+    return _FX_CACHE["per_inr"]
+
+
+def convert_to_inr(amount: Decimal, currency: Optional[str]) -> Decimal:
+    """Convert an amount in the given currency to INR using cached FX rates.
+    Falls back to static approximations if live rates are unavailable.
+    """
+    try:
+        amt = Decimal(str(amount))
+    except Exception:  # noqa: BLE001
+        return Decimal('0')
+    cur = _normalize_currency(currency)
+    if cur == 'INR':
+        return amt
+    rates = _get_per_inr_rates()  # currency per 1 INR
+    per_inr = rates.get(cur)
+    try:
+        if per_inr and per_inr != 0:
+            # amount (cur) -> INR: divide by (cur per INR)
+            return (amt / per_inr)
+    except Exception:  # noqa: BLE001
+        pass
+    # Static fallbacks: INR per unit of currency
+    INR_PER = {
+        'USD': Decimal('84'),
+        'EUR': Decimal('92'),
+        'GBP': Decimal('108'),
+        'JPY': Decimal('0.55'),
+        'CAD': Decimal('62'),
+        'AUD': Decimal('57'),
+        'SGD': Decimal('62'),
+        'MYR': Decimal('18'),
+        'CNY': Decimal('11'),
+    }
+    if cur in INR_PER:
+        return amt * INR_PER[cur]
+    # Unknown currency: assume already INR
+    return amt
 
 
 class BaseProvider:
@@ -21,54 +126,473 @@ class BaseProvider:
         return []
 
 
+class WebSearchProvider(BaseProvider):
+    def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
+        """Simplified web search using crawl4ai + Gemini extraction only."""
+        logger = logging.getLogger(__name__)
+        gemini_key = getattr(settings, 'GEMINI_API_KEY', None)
+        
+        if not gemini_key:
+            logger.warning("No Gemini API key - skipping web search")
+            return []
+            
+        manu = (car.manufacturer or '').strip()
+        model = (car.model_name or '').strip()
+        scale = (car.scale or '').strip()
+        
+        # Use the AI market scraper as the primary method
+        quotes: List[MarketQuote] = []
+        try:
+            # Unpack all three values correctly
+            items, markdown_by_url, query_used = ai_search_market_prices_for_car(car, gemini_key, num_results=3)
+            
+            # Store for logging
+            self.last_queries = [query_used] if query_used else []
+            self.last_extracted_markdown = markdown_by_url or {}
+            
+            logger.info(f"AI market scraper processed {len(items)} items")
+            
+            for item in items or []:
+                try:
+                    # Simple validation - just check if we have a valid price
+                    if not hasattr(item, 'price') or not item.price or item.price <= 0:
+                        logger.info(f"Skipping item with invalid price: {getattr(item, 'price', 'N/A')}")
+                        continue
+                        
+                    # Extract seller from URL if not provided
+                    seller = getattr(item, 'seller', None)
+                    if not seller and getattr(item, 'url', None):
+                        seller = self._extract_seller_from_url(item.url)
+                    
+                    quote = MarketQuote(
+                        'web',
+                        Decimal(str(item.price)),
+                        currency=getattr(item, 'currency', 'USD') or 'USD',
+                        source_listing_url=getattr(item, 'url', None),
+                        title=getattr(item, 'title', None),
+                        model_name=getattr(item, 'model_name', None),
+                        manufacturer=getattr(item, 'manufacturer', None),
+                        scale=getattr(item, 'scale', None),
+                        seller=seller,
+                    )
+                    
+                    logger.info(f"Adding quote: {quote}")
+                    quotes.append(quote)
+                except Exception as e:
+                    logger.warning(f"Error processing item: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"AI market scraper failed: {e}")
+            
+        logger.info(f"WebSearchProvider: found {len(quotes)} quotes for car {car.id}")
+        return quotes
+        
+    def _extract_seller_from_url(self, url: str) -> Optional[str]:
+        """Extract seller name from URL domain."""
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc.lower()
+            if domain.startswith('www.'):
+                domain = domain[4:]
+            
+            # Common marketplace mappings
+            marketplace_map = {
+                'ebay.com': 'eBay', 'ebay.in': 'eBay', 'ebay.co.uk': 'eBay',
+                'amazon.com': 'Amazon', 'amazon.in': 'Amazon',
+                'flipkart.com': 'Flipkart',
+                'aliexpress.com': 'AliExpress',
+                'etsy.com': 'Etsy',
+                'facebook.com': 'Facebook',
+                'reddit.com': 'Reddit',
+            }
+            
+            for domain_key, name in marketplace_map.items():
+                if domain.endswith(domain_key):
+                    return name
+                    
+            # Extract main domain name
+            parts = domain.split('.')
+            if len(parts) >= 2:
+                return parts[-2].capitalize()
+                
+            return domain.capitalize()
+        except Exception:
+            return None
+
 class EbayProvider(BaseProvider):
     def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
-        # Placeholder: implement eBay Finding API/Search API here using settings.EBAY_APP_ID
-        # Return empty for now to avoid external calls
-        return []
+        """Use eBay Finding API to search by keywords if APP ID configured.
+        Docs: https://developer.ebay.com/devzone/finding/callref/finditemsbykeywords.html
+        """
+        app_id = getattr(settings, 'EBAY_APP_ID', None)
+        keywords = f"{car.manufacturer} {car.model_name} {car.scale}".strip()
+        # If explicit identifier provided, include it to increase precision
+        if link and link.external_id:
+            keywords = f"{keywords} {link.external_id}"
+        quotes: List[MarketQuote] = []
+        if app_id:
+            endpoint = "https://svcs.ebay.com/services/search/FindingService/v1"
+            params = {
+                'OPERATION-NAME': 'findItemsByKeywords',
+                'SERVICE-VERSION': '1.0.0',
+                'SECURITY-APPNAME': app_id,
+                'RESPONSE-DATA-FORMAT': 'JSON',
+                'REST-PAYLOAD': 'true',
+                'keywords': keywords,
+                'paginationInput.entriesPerPage': 5,
+                'sortOrder': 'PricePlusShippingLowest',
+            }
+
+            try:
+                resp = requests.get(endpoint, params=params, timeout=10)
+                resp.raise_for_status()
+                data = resp.json()
+                items = data.get('findItemsByKeywordsResponse', [{}])[0].get('searchResult', [{}])[0].get('item', [])
+                for it in items:
+                    selling = it.get('sellingStatus', [{}])[0]
+                    curr = selling.get('currentPrice', [{}])[0]
+                    price_str = curr.get('__value__')
+                    currency = curr.get('@currencyId', 'USD')
+                    url = it.get('viewItemURL', [None])[0]
+                    title = it.get('title', [None])[0]
+                    if price_str:
+                        try:
+                            price = Decimal(str(price_str))
+                            quotes.append(MarketQuote('ebay', price, currency=currency, source_listing_url=url, title=title))
+                        except Exception:  # noqa: BLE001
+                            continue
+            except Exception as e:  # noqa: BLE001
+                logging.exception("eBay provider API failed: %s", e)
+
+        # Fallback: scrape eBay search results page if API not configured or yielded no quotes
+        if not quotes:
+            try:
+                search_url = "https://www.ebay.com/sch/i.html?_nkw=" + requests.utils.quote(keywords)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                }
+                r = requests.get(search_url, headers=headers, timeout=10)
+                r.raise_for_status()
+                soup = BeautifulSoup(r.text, 'html.parser')
+                items = soup.select('.s-item')
+                for node in items[:5]:
+                    # Title and link
+                    atag = node.select_one('a.s-item__link')
+                    title_el = node.select_one('.s-item__title')
+                    price_el = node.select_one('.s-item__price')
+                    if not price_el:
+                        continue
+                    price_match = _extract_price_from_text(price_el.get_text(' ', strip=True))
+                    if not price_match:
+                        continue
+                    amount, currency = price_match
+                    url = atag['href'] if atag and atag.has_attr('href') else search_url
+                    title = title_el.get_text(' ', strip=True) if title_el else None
+                    quotes.append(MarketQuote('ebay', amount, currency=currency, source_listing_url=url, title=title))
+                return quotes
+            except Exception as e:  # noqa: BLE001
+                logging.exception("eBay scraping fallback failed: %s", e)
+        return quotes
 
 
 class HobbyDbProvider(BaseProvider):
     def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
-        # Placeholder for hobbyDB API integration (requires API key)
+        """Try hobbyDB API if key present; else fall back to scraping link URL if provided."""
+        api_key = getattr(settings, 'HOBBYDB_API_KEY', None)
+        # hobbyDB API access is limited; without an API we attempt scraping the provided URL
+        if link and link.url:
+            quote = _scrape_price_from_url(link.url)
+            return [MarketQuote('hobbydb', quote[0], currency=quote[1], source_listing_url=link.url, title=quote[2])] if quote else []
         return []
 
 
 class DiecastAuctionProvider(BaseProvider):
     def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
-        # Placeholder for diecast auction aggregator scraping/API
+        """Scrape price from the provided auction page URL if present."""
+        if link and link.url:
+            quote = _scrape_price_from_url(link.url)
+            return [MarketQuote('diecast_auction', quote[0], currency=quote[1], source_listing_url=link.url, title=quote[2])] if quote else []
+        return []
+
+
+class FacebookProvider(BaseProvider):
+    def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
+        """Attempt to fetch price from a Facebook Marketplace link. Requires login; we support
+        optional cookie via settings.FACEBOOK_COOKIE for best results. Falls back to public scraping.
+        """
+        if not link or not link.url:
+            return []
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        cookie = getattr(settings, 'FACEBOOK_COOKIE', None)
+        if cookie:
+            headers['Cookie'] = cookie
+        try:
+            r = requests.get(link.url, headers=headers, timeout=15)
+            r.raise_for_status()
+            # Facebook often serves minimal HTML; try to extract price patterns
+            quote = _extract_price_from_text(r.text)
+            if quote:
+                price, currency = quote
+                title = _extract_title_from_html(r.text)
+                return [MarketQuote('facebook', price, currency=currency, source_listing_url=link.url, title=title)]
+        except Exception as e:  # noqa: BLE001
+            logging.exception("Facebook provider failed: %s", e)
         return []
 
 
 class MarketService:
     providers = {
-        'ebay': EbayProvider(),
+        'web': WebSearchProvider(),
+        # Temporarily disable eBay provider due to fallback data issues
+        # 'ebay': EbayProvider(),
         'hobbydb': HobbyDbProvider(),
         'diecast_auction': DiecastAuctionProvider(),
+        'facebook': FacebookProvider(),
     }
 
-    def fetch_and_record(self, car: DiecastCar) -> int:
+    def fetch_and_record(self, car: DiecastCar, save_extracted_markdown: bool = False,
+                      include_search_queries: bool = False, log_search_data: bool = True) -> dict:
         """
-        Fetch quotes from all configured sources for a car and record them as MarketPrice entries.
-        Returns number of quotes recorded.
+        Fetch quotes from all configured sources for a car, record as MarketPrice entries,
+        and calculate average prices and comparisons with the user's car value.
+        
+        Args:
+            car: The DiecastCar object to fetch prices for
+            save_extracted_markdown: If True, save the extracted markdown from Gemini
+            include_search_queries: If True, include search queries used for URL finding
+            log_search_data: If True, save logs of search data
+        
+        Returns a stats dict with:
+            count: total quotes recorded (int)
+            all_avg_price: Decimal - average price across all sources (INR)
+            car_value_comparison: dict containing comparison between market value and user's car value
+            market_quotes: dict of quotes by marketplace, each with current price data
+            user_value: the current value of the user's car (from car.price)
+            search_queries: list of queries used (if include_search_queries=True)
+            extracted_markdown: raw markdown content from Gemini (if save_extracted_markdown=True)
         """
         count = 0
+        quotes_by_source = {}
+        all_quotes_this_run = []
+        per_market_counts = {name: 0 for name in self.providers.keys()}
+        market_details = {name: [] for name in self.providers.keys()}
+        search_queries_used = []
+        extracted_markdown = {}
+        saved_count = 0
+        stats = {
+            'count': 0,                   # How many quotes we successfully saved
+            'web_avg_price': None,        # Average market price from web results
+            'all_avg_price': None,        # All sources average price in INR
+            'user_value': None,           # User's assigned value for this car
+            'source_averages': {},        # Per-source price averages
+            'per_source_quotes': {},      # Dict of source -> List[MarketQuote] 
+            'per_market_counts': {},      # Dict of marketplace -> count
+        }
+        
+        # Get user's car value (converted to INR if needed)
+        user_value = None
+        if car.price is not None and car.price > 0:
+            user_value = convert_to_inr(car.price, 'INR')
+        
+        # Initialize logger for this car if logging is enabled
+        logger = None
+        if log_search_data:
+            logger = get_logger(car.id, f"{car.manufacturer} {car.model_name}")
+            
+        # Create extracted_markdown directory if needed
+        if save_extracted_markdown:
+            markdown_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'extracted_markdown')
+            os.makedirs(markdown_dir, exist_ok=True)
+        
+        # Simplified duplicate detection - only check exact URL matches within the same run
+        def is_duplicate(new_quote, existing_quotes):
+            """Check for exact URL duplicates only within the SAME RUN."""
+            if not existing_quotes:
+                return False
+        
+            new_url = new_quote.get('source_listing_url')
+            if not new_url:
+                return False  # No URL to compare
+        
+            for q in existing_quotes:
+                if q.get('source_listing_url') == new_url:
+                    return True
+            return False
+        
+        # Fetch from each provider
         links = {l.marketplace: l for l in car.market_links.all()}
         for marketplace, provider in self.providers.items():
+            # Always run 'web'. Other providers only run if a link exists.
+            if marketplace not in ('web',) and marketplace not in links:
+                continue
+                
             link = links.get(marketplace)
             quotes = provider.fetch(car, link)
-            for q in quotes:
-                MarketPrice.objects.create(
-                    car=car,
-                    marketplace=marketplace,
-                    price=q.price,
-                    currency=q.currency,
-                    fetched_at=timezone.now(),
-                    source_listing_url=q.source_listing_url,
-                    title=q.title,
-                )
-                count += 1
-        return count
+            quotes_by_source[marketplace] = []
+            
+            logging.info(f"Provider {marketplace} returned {len(quotes)} quotes for car {car.id}")
+            
+            # If it's the web provider and we need to track search queries
+            if marketplace == 'web' and include_search_queries and hasattr(provider, 'last_queries'):
+                search_queries_used = getattr(provider, 'last_queries', [])
+                
+            # If we need to save extracted markdown and it's available
+            if save_extracted_markdown and hasattr(provider, 'last_extracted_markdown'):
+                try:
+                    md_content = getattr(provider, 'last_extracted_markdown', {})
+                    if md_content:
+                        extracted_markdown[marketplace] = md_content
+                except Exception as md_err:
+                    logging.warning(f"Failed to get extracted markdown: {md_err}")
+                        
+            # Process each quote from this provider
+            for idx, q in enumerate(quotes):
+                try:
+                    logging.info(f"Processing quote {idx+1}/{len(quotes)} from {marketplace}: {q}")
+                    
+                    # Always convert to INR for consistency
+                    try:
+                        price_decimal = Decimal(str(q.price))
+                        inr_val = convert_to_inr(price_decimal, q.currency)
+                        logging.info(f"Converted price: {price_decimal} {q.currency} -> {inr_val} INR")
+                        
+                        if inr_val <= 0:
+                            logging.info(f"Skipping quote with zero/negative price: {inr_val}")
+                            continue
+                    except Exception as conv_err:
+                        logging.warning(f"Error converting price to INR: {q.price} {q.currency} - {conv_err}")
+                        continue
+                        
+                    # Store the quote details
+                    quote_details = {
+                        'title': q.title,
+                        'price_inr': inr_val,
+                        'original_price': q.price,
+                        'original_currency': q.currency,
+                        'currency': 'INR',
+                        'url': q.source_listing_url,
+                        'model_name': q.model_name,
+                        'manufacturer': q.manufacturer,
+                        'scale': q.scale,
+                        'seller': q.seller,
+                        'fetched_at': timezone.now().isoformat(),
+                    }
+                    
+                    # Only check for exact URL duplicates in this run
+                    if is_duplicate(quote_details, quotes_by_source[marketplace]):
+                        logging.info(f"Skipping duplicate URL for {car.model_name}: {quote_details['source_listing_url']}")
+                        continue
+                    
+                    # Save to database with additional fields
+                    price_obj = MarketPrice.objects.create(
+                        car=car,
+                        marketplace=marketplace,
+                        price=inr_val,
+                        currency='INR',  # We save everything in INR for consistency
+                        fetched_at=timezone.now(),
+                        source_listing_url=q.source_listing_url,
+                        title=q.title or f"{q.manufacturer or ''} {q.model_name or ''}".strip() or 'Unknown'
+                    )
+                    saved_count += 1
+                    logging.info(f"Saved new quote: {q.title or 'Untitled'} - INR {inr_val} from {q.seller or marketplace}")
+                    
+                    # Log the saved price if logging is enabled
+                    if log_search_data and logger:
+                        try:
+                            logger.log_price_result(marketplace, {
+                                'id': price_obj.id,
+                                'title': q.title,
+                                'price': float(inr_val),
+                                'currency': 'INR',
+                                'url': q.source_listing_url,
+                                'original_price': float(q.price) if q.price else None,
+                                'original_currency': q.currency,
+                                'model_name': getattr(q, 'model_name', None),
+                                'manufacturer': getattr(q, 'manufacturer', None),
+                                'scale': getattr(q, 'scale', None),
+                                'seller': getattr(q, 'seller', None),
+                                'fetched_at': timezone.now().isoformat(),
+                            })
+                        except Exception as log_err:
+                            # Don't let logging errors affect the main flow
+                            logging.warning(f"Failed to log price result: {log_err}")
+                    
+                    # Track in our per-market breakdowns
+                    per_market_counts[marketplace] = per_market_counts.get(marketplace, 0) + 1
+                    
+                    # Add to our tracking collections
+                    quotes_by_source[marketplace].append(quote_details)
+                    market_details[marketplace].append(quote_details)
+                    all_quotes_this_run.append(inr_val)
+                    count += 1
+                    
+                except Exception as e:  # noqa: BLE001
+                    logging.warning(f"Error processing quote {idx+1} from {marketplace}: {e}")
+        
+        # Save logs if logging is enabled
+        if log_search_data and logger:
+            try:
+                saved_files = save_all_logs()
+                if saved_files:
+                    logging.info(f"Search logs saved to: {', '.join(saved_files)}")
+            except Exception as log_err:
+                logging.warning(f"Failed to save search logs: {log_err}")
+        
+        # Calculate overall average from all sources
+        all_avg = None
+        if all_quotes_this_run:
+            nonzero = [v for v in all_quotes_this_run if v and v > 0]
+            if nonzero:
+                all_avg = sum(nonzero) / Decimal(len(nonzero))
+        
+        # Create comparison with user's car value
+        comparison = None
+        if user_value is not None and all_avg is not None:
+            diff = user_value - all_avg
+            pct = None
+            if all_avg > 0:
+                pct = (diff / all_avg) * Decimal('100')
+                
+            comparison = {
+                'diff_absolute': diff,
+                'diff_percentage': pct,
+                'is_undervalued': diff < 0,
+                'is_overvalued': diff > 0
+            }
+        
+        # Log when no quotes are found
+        if not all_quotes_this_run:
+            logging.getLogger(__name__).info(
+                "MarketService: No new quotes found for car %s (%s %s). This may be due to recent data or no available listings.",
+                car.id, car.manufacturer or '', car.model_name or ''
+            )
+            
+        # Clean up market_details to only include sources with actual data
+        market_quotes = {k: v for k, v in market_details.items() if v}
+
+        result = {
+            'count': count,
+            'all_avg_price': all_avg,
+            'user_value': user_value,
+            'car_value_comparison': comparison,
+            'source_averages': {},
+            'market_quotes': market_quotes,
+            'per_market_counts': per_market_counts,
+        }
+        
+        # Add optional data if requested
+        if include_search_queries:
+            result['search_queries'] = search_queries_used
+            
+        if save_extracted_markdown:
+            result['extracted_markdown'] = extracted_markdown
+            
+        return result
 
     @staticmethod
     def latest_and_previous(car: DiecastCar):
@@ -76,3 +600,146 @@ class MarketService:
         latest = qs.first()
         previous = qs[1] if qs.count() > 1 else None
         return latest, previous
+
+
+# ---------------------
+# Helper scraping utils
+# ---------------------
+
+def _string_similarity(s1: str, s2: str) -> float:
+    """Calculate string similarity using Levenshtein distance.
+    Returns a value between 0 (no similarity) and 1 (identical strings).
+    """
+    if not s1 or not s2:
+        return 0.0
+    try:
+        # Simple length-based comparison for performance
+        if abs(len(s1) - len(s2)) / max(len(s1), len(s2)) > 0.5:
+            return 0.0
+            
+        # Levenshtein distance calculation
+        if len(s1) > len(s2):
+            s1, s2 = s2, s1
+        distances = range(len(s1) + 1)
+        for i2, c2 in enumerate(s2):
+            distances_ = [i2+1]
+            for i1, c1 in enumerate(s1):
+                if c1 == c2:
+                    distances_.append(distances[i1])
+                else:
+                    distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+            distances = distances_
+        
+        # Convert to similarity score
+        max_len = max(len(s1), len(s2))
+        return 1 - (distances[-1] / max_len)
+    except Exception:
+        return 0.0
+
+PRICE_REGEXES = [
+    # Symbol/code before amount
+    re.compile(r"(?:₹|Rs\.?\s?|INR\s*)([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:US\$|USD|\$)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:€|EUR)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:£|GBP)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:¥|JPY)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:C\$|CA\$|CAD)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:A\$|AUD)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:SG\$|SGD)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    re.compile(r"(?:CNY|RMB)\s*([\d,]+(?:\.\d{1,2})?)", re.I),
+    # Amount before code/symbol
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:₹|Rs\.?|INR)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:US\$|USD|\$)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:€|EUR)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:£|GBP)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:¥|JPY)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:C\$|CA\$|CAD)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:A\$|AUD)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:SG\$|SGD)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:RM|MYR)", re.I),
+    re.compile(r"([\d,]+(?:\.\d{1,2})?)\s*(?:CNY|RMB)", re.I),
+]
+
+
+def _extract_title_from_html(html: str) -> Optional[str]:
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        if soup.title and soup.title.text:
+            return soup.title.text.strip()
+        og = soup.find('meta', attrs={'property': 'og:title'})
+        if og and og.get('content'):
+            return og['content'].strip()
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def _extract_price_from_text(text: str) -> Optional[Tuple[Decimal, str]]:
+    for rx in PRICE_REGEXES:
+        m = rx.search(text)
+        if m:
+            num = m.group(1).replace(',', '')
+            try:
+                val = Decimal(num)
+            except Exception:  # noqa: BLE001
+                continue
+            s = m.group(0)
+            s_up = s.upper()
+            currency = 'INR'
+            if '₹' in s or 'INR' in s_up or 'RS' in s_up:
+                currency = 'INR'
+            elif 'US$' in s_up or 'USD' in s_up or '$' in s:
+                currency = 'USD'
+            elif '€' in s or 'EUR' in s_up:
+                currency = 'EUR'
+            elif '£' in s or 'GBP' in s_up:
+                currency = 'GBP'
+            elif 'C$' in s or 'CA$' in s_up or 'CAD' in s_up:
+                currency = 'CAD'
+            elif 'A$' in s or 'AUD' in s_up:
+                currency = 'AUD'
+            elif 'SG$' in s_up or 'SGD' in s_up:
+                currency = 'SGD'
+            elif 'RM' in s_up or 'MYR' in s_up:
+                currency = 'MYR'
+            elif 'RMB' in s_up or 'CNY' in s_up:
+                currency = 'CNY'
+            elif '¥' in s or 'JPY' in s_up:
+                currency = 'JPY'
+            return val, currency
+    return None
+
+
+def _scrape_price_from_url(url: str) -> Optional[Tuple[Decimal, str, Optional[str]]]:
+    """Extract price information from a URL using Gemini API or fallback methods."""
+    from django.conf import settings
+    gemini_api_key = getattr(settings, 'GEMINI_API_KEY', None)
+    
+    # Use Gemini if API key is available
+    if gemini_api_key:
+        try:
+            from .gemini_client import GeminiClient
+            client = GeminiClient(gemini_api_key)
+            extraction = client.extract_price_from_url(url)
+            if extraction and extraction.price > 0:
+                return extraction.price, extraction.currency, extraction.title
+        except Exception as e:
+            logging.warning(f"Gemini extraction failed: {e}")
+    
+    # Fallback to traditional request/parsing if Gemini fails or is unavailable
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=15)
+        r.raise_for_status()
+        title = _extract_title_from_html(r.text)
+        price = _extract_price_from_text(r.text)
+        if price:
+            return price[0], price[1], title
+    except Exception as e:  # noqa: BLE001
+        logging.exception("Scrape failed for %s: %s", url, e)
+    
+    return None

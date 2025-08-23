@@ -121,6 +121,21 @@
         </div>
         
         <!-- Seller Ratings -->
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white py-2">
+                <h6 class="mb-0">Portfolio Valuation</h6>
+            </div>
+            <div class="card-body">
+                <button id="calculate-portfolio-btn" class="btn btn-info">Calculate Portfolio Value</button>
+                <div id="portfolio-results-container" class="mt-3" style="display: none;">
+                    <div id="portfolio-spinner" class="spinner-border text-info" role="status" style="display: none;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div id="portfolio-results"></div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Seller Ratings</h6>
@@ -333,19 +348,70 @@
 </div>
 {% endif %}
 
-{% if months %}
-<!-- Include Chart.js library -->
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get the canvas element
-        const ctx = document.getElementById('purchaseChart').getContext('2d');
-        
-        // Parse the Django template variables
+document.addEventListener('DOMContentLoaded', function() {
+    // Portfolio valuation logic
+    const calculateBtn = document.getElementById('calculate-portfolio-btn');
+    const resultsContainer = document.getElementById('portfolio-results-container');
+    const spinner = document.getElementById('portfolio-spinner');
+    const resultsDiv = document.getElementById('portfolio-results');
+
+    if(calculateBtn) {
+        calculateBtn.addEventListener('click', function() {
+            resultsContainer.style.display = 'block';
+            spinner.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            calculateBtn.disabled = true;
+
+            fetch(`{% url 'calculate_portfolio_valuation' %}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    spinner.style.display = 'none';
+                    let content = `<h5>Total Portfolio Value: <span class="text-success">₹${data.total_portfolio_value_inr}</span></h5>`;
+                    content += `<p class="mb-1">Cars Processed: ${data.cars_processed} / ${data.total_cars}</p>`;
+                    if (data.cars_failed > 0) {
+                        content += `<p class="text-danger">Cars Failed: ${data.cars_failed}</p>`;
+                    }
+                    
+                    if(data.results && data.results.length > 0) {
+                        content += '<ul class="list-group mt-2">';
+                        data.results.forEach(item => {
+                            if(item.error) {
+                                content += `<li class="list-group-item list-group-item-danger">${item.model_name}: ${item.error}</li>`;
+                            } else {
+                                content += `<li class="list-group-item">${item.model_name}: ₹${item.average_price_inr}</li>`;
+                            }
+                        });
+                        content += '</ul>';
+                    }
+                    resultsDiv.innerHTML = content;
+                })
+                .catch(error => {
+                    spinner.style.display = 'none';
+                    resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                })
+                .finally(() => {
+                    calculateBtn.disabled = false;
+                });
+        });
+    }
+
+    // Chart logic
+    {% if months %}
+    const ctx = document.getElementById('purchaseChart').getContext('2d');
+    if (ctx) {
         const months = JSON.parse('{{ months|safe|escapejs }}');
         const purchaseCounts = JSON.parse('{{ purchase_counts|safe|escapejs }}');
         
-        // Create the chart
         const purchaseChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -371,7 +437,8 @@
                 }
             }
         });
-    });
+    }
+    {% endif %}
+});
 </script>
-{% endif %}
-{% endblock %}
+{% endblock extra_js %}

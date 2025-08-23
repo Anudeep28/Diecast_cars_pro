@@ -1,0 +1,129 @@
+{
+  "car_id": 26,
+  "car_name": "France Toleman TG184 - 1984 Ayrton Senna",
+  "timestamp": "2025-08-17T13:55:45.936358+00:00",
+  "queries": [],
+  "results": [],
+  "extracted_content": {},
+  "final_prices": [
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 607,
+        "title": "f1",
+        "price": 1671.6,
+        "currency": "INR",
+        "url": "https://www.ebay.com/shop/senna-toleman?_nkw=senna+toleman",
+        "original_price": 19.9,
+        "original_currency": "USD",
+        "model_name": null,
+        "manufacturer": null,
+        "scale": null,
+        "seller": "eBay",
+        "fetched_at": "2025-08-17T13:56:39.836351+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 608,
+        "title": "Missing ORVM : 1998 Subaru Impreza 22B 1:18 Solido diecast Scale Model collectible",
+        "price": 4499.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 4499.0,
+        "original_currency": "INR",
+        "model_name": "Subaru Impreza 22B",
+        "manufacturer": "Solido",
+        "scale": "1:18",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.134994+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 609,
+        "title": "Porsche 911 993 RWB apple 1:64 Street Warrior diecast scale model car miniature collectible",
+        "price": 2949.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 2949.0,
+        "original_currency": "INR",
+        "model_name": "Porsche 911 993 RWB apple",
+        "manufacturer": "Street Warrior",
+        "scale": "1:64",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.146010+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 610,
+        "title": "Porsche 911 993 RWB x DBZ 1:64 Street Warrior diecast scale model car miniature collectible",
+        "price": 2949.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 2949.0,
+        "original_currency": "INR",
+        "model_name": "Porsche 911 993 RWB x DBZ",
+        "manufacturer": "Street Warrior",
+        "scale": "1:64",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.153871+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 611,
+        "title": "1884 Delamare Deboutteville et Malandin 1:43 Eligor diecast Scale Model Car",
+        "price": 999.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 999.0,
+        "original_currency": "INR",
+        "model_name": "Delamare Deboutteville et Malandin",
+        "manufacturer": "Eligor",
+        "scale": "1:43",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.158446+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 612,
+        "title": "1934-1936 Mercedes-Benz 500K Special Roadster 1:18 Maisto diecast Scale Model car",
+        "price": 3199.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 3199.0,
+        "original_currency": "INR",
+        "model_name": "Mercedes-Benz 500K Special Roadster",
+        "manufacturer": "Maisto",
+        "scale": "1:18",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.163000+00:00"
+      }
+    },
+    {
+      "marketplace": "web",
+      "price_details": {
+        "id": 613,
+        "title": "1942 Willys Jeep fire 1:18 Norev diecast scale model car",
+        "price": 6499.0,
+        "currency": "INR",
+        "url": null,
+        "original_price": 6499.0,
+        "original_currency": "INR",
+        "model_name": "Willys Jeep fire",
+        "manufacturer": "Norev",
+        "scale": "1:18",
+        "seller": "Scale Arts India",
+        "fetched_at": "2025-08-17T13:57:12.168450+00:00"
+      }
+    }
+  ]
+}

@@ -27,6 +27,7 @@ urlpatterns = [
     path('accounts/login/', lambda request: redirect('login'), name='accounts_login'),
     # Include inventory URLs directly at the root level
     path('', include('inventory.urls')),
+    path('api/', include('inventory.api_urls')),
 ]
 
 # Serve media files during development

@@ -42,7 +42,35 @@ class DiecastCarAdmin(admin.ModelAdmin):
     search_fields = ('model_name', 'manufacturer', 'user__username')
     readonly_fields = ('purchase_date',)
     inlines = [CarMarketLinkInline, MarketPriceInline]
+    actions = ['update_market_prices_via_web_search']
     
+    @admin.action(description="Update market prices (includes web search with Crawl4AI)")
+    def update_market_prices_via_web_search(self, request, queryset):
+        from .market_services import MarketService
+        from django.contrib import messages
+
+        service = MarketService()
+        total = 0
+        errors = 0
+        for car in queryset:
+            try:
+                stats = service.fetch_and_record(car)
+                total += stats.get('count', 0)
+            except Exception:
+                errors += 1
+        if errors:
+            self.message_user(
+                request,
+                f"Completed with {errors} error(s). Added {total} price record(s).",
+                level=messages.WARNING,
+            )
+        else:
+            self.message_user(
+                request,
+                f"Added {total} price record(s) from providers for {queryset.count()} car(s).",
+                level=messages.SUCCESS,
+            )
+
     fieldsets = (
         ('Car Information', {
             'fields': ('user', 'model_name', 'manufacturer', 'scale', 'image', 'price', 'shipping_cost', 'advance_payment', 'remaining_payment')
