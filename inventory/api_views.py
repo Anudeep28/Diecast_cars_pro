@@ -1,13 +1,16 @@
 import asyncio
+import json
 from decimal import Decimal
 
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseNotFound, HttpResponseServerError
+from django.http import JsonResponse, HttpResponseNotFound, HttpResponseServerError, HttpResponseForbidden, HttpResponseBadRequest
 from django.views import View
 from asgiref.sync import sync_to_async
 
-from .models import DiecastCar
-from .market_services import MarketService
+from django.utils import timezone
+
+from .models import DiecastCar, MarketPrice, MARKETPLACE_CHOICES
+from .market_services import MarketService, convert_to_inr
 
 class FetchMarketPriceView(View):
     async def get(self, request, car_id):
@@ -126,3 +129,96 @@ class CalculatePortfolioView(View):
             'total_cars': len(cars),
             'results': detailed_results,
         })
+
+
+class DeleteMarketPriceView(View):
+    async def delete(self, request, price_id: int):
+        try:
+            price_obj = await sync_to_async(MarketPrice.objects.select_related('car').get)(pk=price_id)
+        except MarketPrice.DoesNotExist:
+            return HttpResponseNotFound("MarketPrice not found")
+
+        # Authorization: only the owner of the car can delete
+        if not request.user.is_authenticated or price_obj.car.user_id != request.user.id:
+            return HttpResponseForbidden("Not allowed")
+
+        await sync_to_async(price_obj.delete)()
+        return JsonResponse({'success': True})
+
+
+class AddManualMarketPriceView(View):
+    async def post(self, request, car_id: int):
+        # Ensure car exists and belongs to the user
+        try:
+            car = await sync_to_async(DiecastCar.objects.select_related('user').get)(pk=car_id)
+        except DiecastCar.DoesNotExist:
+            return HttpResponseNotFound("Car not found")
+
+        if not request.user.is_authenticated or car.user_id != request.user.id:
+            return HttpResponseForbidden("Not allowed")
+
+        try:
+            payload = json.loads(request.body or '{}')
+        except Exception:
+            return HttpResponseBadRequest("Invalid JSON body")
+
+        # Validate inputs
+        marketplace = (payload.get('marketplace') or '').strip()
+        valid_marketplaces = {choice[0] for choice in MARKETPLACE_CHOICES}
+        if marketplace not in valid_marketplaces:
+            return HttpResponseBadRequest("Invalid marketplace")
+
+        price_raw = payload.get('price')
+        if price_raw is None:
+            return HttpResponseBadRequest("Missing price")
+        try:
+            price_dec = Decimal(str(price_raw))
+        except Exception:
+            return HttpResponseBadRequest("Invalid price")
+        if price_dec <= 0:
+            return HttpResponseBadRequest("Price must be > 0")
+
+        currency = (payload.get('currency') or 'INR').strip()
+        title = (payload.get('title') or '').strip() or None
+        src_url = (payload.get('source_listing_url') or payload.get('url') or '').strip() or None
+
+        # Normalize to INR
+        try:
+            inr_val = convert_to_inr(price_dec, currency)
+        except Exception as e:
+            return HttpResponseServerError(f"Conversion failed: {e}")
+        if not inr_val or inr_val <= 0:
+            return HttpResponseBadRequest("Could not convert to INR or value <= 0")
+
+        # Create MarketPrice
+        fetched_at = timezone.now()
+        price_obj = await sync_to_async(MarketPrice.objects.create)(
+            car=car,
+            marketplace=marketplace,
+            price=inr_val,
+            currency='INR',
+            fetched_at=fetched_at,
+            source_listing_url=src_url,
+            title=title,
+        )
+
+        # Build response compatible with fetch endpoint quotes
+        resp = {
+            'id': price_obj.id,
+            'marketplace': marketplace,
+            'source': marketplace,
+            'title': title,
+            'price_inr': str(round(inr_val, 2)),
+            'original_price': str(round(price_dec, 2)),
+            'original_currency': currency,
+            'currency': 'INR',
+            'source_listing_url': src_url,
+            'url': src_url,
+            'model_name': car.model_name,
+            'manufacturer': car.manufacturer,
+            'scale': car.scale,
+            'seller': payload.get('seller') or None,
+            'fetched_at': fetched_at.isoformat(),
+        }
+
+        return JsonResponse({'success': True, 'quote': resp})

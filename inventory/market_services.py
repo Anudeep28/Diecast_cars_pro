@@ -560,6 +560,10 @@ class MarketService:
                     )
                     saved_count += 1
                     
+                    # Attach DB identifier and marketplace for client-side actions
+                    quote_details['id'] = price_obj.id
+                    quote_details['marketplace'] = marketplace
+                    
                     # Log the saved price if logging is enabled
                     if log_search_data and logger:
                         pass
