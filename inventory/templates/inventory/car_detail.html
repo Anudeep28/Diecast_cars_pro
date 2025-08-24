@@ -143,6 +143,7 @@
                 <div id="market-price-result" class="mt-3" style="display: none;">
                     <h4>Market Analysis</h4>
                     <p><strong>Average Price:</strong> <span id="average-price"></span></p>
+                    <p class="mb-2"><strong>Vs Purchase:</strong> <span id="vs-purchase"></span></p>
                     <h5>Source Quotes:</h5>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped">
@@ -193,8 +194,18 @@
         </div>
         {% endif %}
 
+        <!-- Latest Market Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Latest Market Summary</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Average Price:</strong> <span id="latest-avg-price">{% if latest_avg_price %}₹{{ latest_avg_price|floatformat:2 }}{% else %}Not available{% endif %}</span></p>
+                <p class="mb-0"><strong>Vs Purchase:</strong> <span id="latest-vs-purchase">{% if pct_vs_purchase is not None %}{% if pct_vs_purchase >= 0 %}+{% endif %}{{ pct_vs_purchase }}%{% else %}N/A{% endif %}</span></p>
+            </div>
+        </div>
+
         <!-- Price History -->
-        {% if price_history %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5>Recent Market History</h5>
@@ -208,19 +219,25 @@
                             <th class="text-end small">Price</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for mp in price_history %}
-                        <tr>
-                            <td class="small">{{ mp.fetched_at|date:'Y-m-d H:i' }}</td>
-                            <td class="small">{{ mp.get_marketplace_display }}</td>
-                            <td class="text-end">₹{{ mp.price }}</td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="price-history-body">
+                        {% if price_history %}
+                            {% for mp in price_history %}
+                            <tr>
+                                <td class="small">{{ mp.fetched_at|date:'Y-m-d H:i' }}</td>
+                                <td class="small">{{ mp.get_marketplace_display }}</td>
+                                <td class="text-end">₹{{ mp.price }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr data-placeholder="true">
+                                <td colspan="3" class="text-center text-muted small">No market history yet.</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
-        {% endif %}
+
 
         <div class="card">
             <div class="card-header">
@@ -292,12 +309,39 @@
 {% block extra_js %}
 <script>
     document.getElementById('fetch-market-price-btn').addEventListener('click', function() {
-        const carId = {{ car.pk }};
+        const carId = Number("{{ car.pk }}");
         const resultDiv = document.getElementById('market-price-result');
         const loadingDiv = document.getElementById('market-price-loading');
         const errorDiv = document.getElementById('market-price-error');
         const avgPriceSpan = document.getElementById('average-price');
+        const vsPurchaseSpan = document.getElementById('vs-purchase');
         const quotesList = document.getElementById('quotes-list');
+        const historyBody = document.getElementById('price-history-body');
+        const latestAvgSpan = document.getElementById('latest-avg-price');
+        const latestVsPurchaseSpan = document.getElementById('latest-vs-purchase');
+
+        const sourceDisplay = {
+            'web': 'Web Search',
+            'hobbydb': 'hobbyDB',
+            'diecast_auction': 'Diecast Auction',
+            'facebook': 'Facebook',
+            'ebay': 'eBay'
+        };
+
+        function formatDate(isoStr) {
+            try {
+                const d = isoStr ? new Date(isoStr) : new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const y = d.getFullYear();
+                const m = pad(d.getMonth() + 1);
+                const day = pad(d.getDate());
+                const h = pad(d.getHours());
+                const min = pad(d.getMinutes());
+                return `${y}-${m}-${day} ${h}:${min}`;
+            } catch (e) {
+                return isoStr || '';
+            }
+        }
 
         // Show loading indicator
         loadingDiv.style.display = 'block';
@@ -318,6 +362,23 @@
                     avgPriceSpan.textContent = `₹${data.average_price_inr}`;
                 } else {
                     avgPriceSpan.textContent = 'Not available';
+                }
+
+                // Vs Purchase
+                if (typeof data.percent_change_from_purchase !== 'undefined' && data.percent_change_from_purchase !== null) {
+                    const val = parseFloat(data.percent_change_from_purchase);
+                    if (!isNaN(val)) {
+                        const sign = val >= 0 ? '+' : '';
+                        vsPurchaseSpan.textContent = `${sign}${val}%`;
+                        // also update the summary card
+                        if (latestVsPurchaseSpan) latestVsPurchaseSpan.textContent = `${sign}${val}%`;
+                    } else {
+                        vsPurchaseSpan.textContent = 'N/A';
+                        if (latestVsPurchaseSpan) latestVsPurchaseSpan.textContent = 'N/A';
+                    }
+                } else {
+                    vsPurchaseSpan.textContent = 'N/A';
+                    if (latestVsPurchaseSpan) latestVsPurchaseSpan.textContent = 'N/A';
                 }
 
                 quotesList.innerHTML = '';
@@ -383,13 +444,59 @@
                         quotesList.appendChild(row);
                     });
                 } else {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'list-group-item';
-                    listItem.textContent = 'No quotes found.';
-                    quotesList.appendChild(listItem);
+                    const emptyRow = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.className = 'text-center text-muted';
+                    td.textContent = 'No quotes found.';
+                    emptyRow.appendChild(td);
+                    quotesList.appendChild(emptyRow);
                 }
 
                 resultDiv.style.display = 'block';
+
+                // Update Latest Market Summary (average)
+                if (latestAvgSpan) {
+                    if (data.average_price_inr) {
+                        latestAvgSpan.textContent = `₹${data.average_price_inr}`;
+                    } else {
+                        latestAvgSpan.textContent = 'Not available';
+                    }
+                }
+
+                // Dynamically update Recent Market History with new quotes
+                if (historyBody && data.quotes && data.quotes.length > 0) {
+                    const placeholder = historyBody.querySelector('tr[data-placeholder="true"]');
+                    if (placeholder) placeholder.remove();
+
+                    data.quotes.forEach(quote => {
+                        const tr = document.createElement('tr');
+                        const dateTd = document.createElement('td');
+                        dateTd.className = 'small';
+                        dateTd.textContent = formatDate(quote.fetched_at);
+                        const marketTd = document.createElement('td');
+                        marketTd.className = 'small';
+                        marketTd.textContent = sourceDisplay[quote.source] || (quote.source || '—');
+                        const priceTd = document.createElement('td');
+                        priceTd.className = 'text-end';
+                        if (quote.price_inr) {
+                            priceTd.textContent = `₹${quote.price_inr}`;
+                        } else if (quote.original_price && quote.original_currency) {
+                            priceTd.textContent = `${quote.original_price} ${quote.original_currency}`;
+                        } else {
+                            priceTd.textContent = 'N/A';
+                        }
+                        tr.appendChild(dateTd);
+                        tr.appendChild(marketTd);
+                        tr.appendChild(priceTd);
+                        historyBody.insertBefore(tr, historyBody.firstChild);
+                    });
+
+                    // Trim to 10 rows
+                    while (historyBody.children.length > 10) {
+                        historyBody.removeChild(historyBody.lastChild);
+                    }
+                }
             })
             .catch(error => {
                 loadingDiv.style.display = 'none';

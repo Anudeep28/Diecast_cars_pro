@@ -436,6 +436,8 @@ class MarketService:
         search_queries_used = []
         extracted_markdown = {}
         saved_count = 0
+        # Use a single timestamp for this fetch run to group quotes together
+        batch_time = timezone.now()
         stats = {
             'count': 0,                   # How many quotes we successfully saved
             'web_avg_price': None,        # Average market price from web results
@@ -467,12 +469,14 @@ class MarketService:
             if not existing_quotes:
                 return False
         
-            new_url = new_quote.get('source_listing_url')
+            # Support either key to be safe
+            new_url = new_quote.get('source_listing_url') or new_quote.get('url')
             if not new_url:
                 return False  # No URL to compare
         
             for q in existing_quotes:
-                if q.get('source_listing_url') == new_url:
+                q_url = q.get('source_listing_url') or q.get('url')
+                if q_url and q_url == new_url:
                     return True
             return False
         
@@ -529,12 +533,15 @@ class MarketService:
                         'original_price': q.price,
                         'original_currency': q.currency,
                         'currency': 'INR',
+                        # Provide source_listing_url explicitly for API consumers
+                        'source_listing_url': q.source_listing_url,
+                        # Keep legacy key for any older front-ends
                         'url': q.source_listing_url,
                         'model_name': q.model_name,
                         'manufacturer': q.manufacturer,
                         'scale': q.scale,
                         'seller': q.seller,
-                        'fetched_at': timezone.now().isoformat(),
+                        'fetched_at': batch_time.isoformat(),
                     }
                     
                     # Only check for exact URL duplicates in this run
@@ -547,7 +554,7 @@ class MarketService:
                         marketplace=marketplace,
                         price=inr_val,
                         currency='INR',  # We save everything in INR for consistency
-                        fetched_at=timezone.now(),
+                        fetched_at=batch_time,
                         source_listing_url=q.source_listing_url,
                         title=q.title or f"{q.manufacturer or ''} {q.model_name or ''}".strip() or 'Unknown'
                     )

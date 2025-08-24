@@ -47,14 +47,27 @@ class FetchMarketPriceView(View):
                 q['source'] = source
                 quotes.append(q)
 
-        avg_price = stats.get('all_avg_price')
+        avg_raw = stats.get('all_avg_price')
+        avg_price = avg_raw
         if isinstance(avg_price, Decimal):
             avg_price = str(round(avg_price, 2))
+
+        # Compute purchase comparison
+        purchase_price_inr = car.price or Decimal('0')
+        percent_change_from_purchase = None
+        try:
+            if isinstance(avg_raw, Decimal) and purchase_price_inr and purchase_price_inr > 0:
+                pct = ((avg_raw - purchase_price_inr) / purchase_price_inr) * Decimal('100')
+                percent_change_from_purchase = str(round(pct, 2))
+        except Exception:
+            percent_change_from_purchase = None
 
         return JsonResponse({
             'average_price_inr': avg_price,
             'quotes': quotes,
             'car_id': car_id,
+            'purchase_price_inr': str(round(purchase_price_inr, 2)) if purchase_price_inr else None,
+            'percent_change_from_purchase': percent_change_from_purchase,
         })
 
 

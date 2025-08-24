@@ -292,6 +292,20 @@ def car_detail(request, pk):
         market_change_pct = round(((float(market_latest.price) - float(market_previous.price)) / float(market_previous.price)) * 100.0, 2)
     price_history = list(market_qs[:10])
     market_links = list(car.market_links.all())
+
+    # Latest averaged price (from most recent fetch batch) and % vs purchase
+    latest_avg_price = None
+    pct_vs_purchase = None
+    try:
+        if market_latest is not None:
+            latest_batch_time = market_latest.fetched_at
+            batch_qs = MarketPrice.objects.filter(car=car, fetched_at=latest_batch_time)
+            latest_avg_price = batch_qs.aggregate(avg=Avg('price'))['avg']
+            if latest_avg_price and car.price and float(car.price) > 0:
+                pct_vs_purchase = round(((float(latest_avg_price) - float(car.price)) / float(car.price)) * 100.0, 2)
+    except Exception:
+        latest_avg_price = None
+        pct_vs_purchase = None
     
     context = {
         'car': car,
@@ -301,6 +315,8 @@ def car_detail(request, pk):
         'market_change_pct': market_change_pct,
         'price_history': price_history,
         'market_links': market_links,
+        'latest_avg_price': latest_avg_price,
+        'pct_vs_purchase': pct_vs_purchase,
     }
     return render(request, 'inventory/car_detail.html', context)
 
