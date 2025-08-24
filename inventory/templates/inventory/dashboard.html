@@ -59,14 +59,14 @@
                         {% endif %}
                     </div>
                 </div>
-                {% if rarity_alerts %}
+                {% if top_price_changes %}
                 <hr>
-                <h6 class="text-muted">Rarity Alerts</h6>
+                <h6 class="text-muted">Top Price Changes vs Purchase</h6>
                 <ul class="small mb-0">
-                    {% for alert in rarity_alerts %}
+                    {% for item in top_price_changes %}
                         <li>
-                            <a href="{% url 'car_detail' alert.car.pk %}">{{ alert.car.model_name }}</a>:
-                            +{{ alert.change_pct }}% ({{ alert.marketplace }})
+                            <a href="{% url 'car_detail' item.car.pk %}">{{ item.car.model_name }}</a>:
+                            +{{ item.change_pct }}% <span class="text-muted">(@ ₹{{ item.latest_price|floatformat:2 }})</span>
                         </li>
                     {% endfor %}
                 </ul>

@@ -139,6 +139,7 @@ def dashboard(request):
     market_current_total = 0
     market_previous_total = 0
     rarity_alerts = []
+    top_price_changes = []
     thirty_days_ago = timezone.now() - timedelta(days=30)
     for car in all_cars:
         latest = MarketPrice.objects.filter(car=car).order_by('-fetched_at').first()
@@ -152,13 +153,22 @@ def dashboard(request):
             if prev and float(prev.price) > 0:
                 market_previous_total += float(prev.price)
                 change_pct = ((float(latest.price) - float(prev.price)) / float(prev.price)) * 100.0
-                if change_pct >= 40.0:
-                    rarity_alerts.append({
-                        'car': car,
-                        'change_pct': round(change_pct, 1),
-                        'latest_price': latest.price,
-                        'marketplace': latest.get_marketplace_display(),
-                    })
+
+            # Compute percent change vs purchase price using latest batch average
+            try:
+                if car.price and float(car.price) > 0:
+                    batch_qs = MarketPrice.objects.filter(car=car, fetched_at=latest.fetched_at)
+                    batch_avg = batch_qs.aggregate(avg=Avg('price'))['avg'] or latest.price
+                    pct_vs_purchase = ((float(batch_avg) - float(car.price)) / float(car.price)) * 100.0
+                    if pct_vs_purchase > 0:
+                        top_price_changes.append({
+                            'car': car,
+                            'change_pct': round(pct_vs_purchase, 1),
+                            'latest_price': batch_avg,
+                        })
+            except Exception:
+                # If any calculation fails for this car, skip it for the top list
+                pass
     
     # Top manufacturers by count
     manufacturer_counts = all_cars.values('manufacturer').annotate(count=Count('id')).order_by('-count')[:5]
@@ -194,6 +204,12 @@ def dashboard(request):
     if market_previous_total > 0:
         market_change_pct = round(((market_current_total - market_previous_total) / market_previous_total) * 100.0, 2)
 
+    # Sort and take top 4 highest % increases vs purchase
+    try:
+        top_price_changes = sorted(top_price_changes, key=lambda x: x['change_pct'], reverse=True)[:4]
+    except Exception:
+        top_price_changes = []
+
     context = {
         'cars': cars,
         'total_value': total_value,
@@ -213,6 +229,7 @@ def dashboard(request):
         'market_previous_total': market_previous_total,
         'market_change_pct': market_change_pct,
         'rarity_alerts': rarity_alerts,
+        'top_price_changes': top_price_changes,
         'top_manufacturers': manufacturer_counts,
         'scale_counts': scale_counts,
         'months': months_json,
