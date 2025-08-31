@@ -10,6 +10,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta, datetime
+import json
 from .models import DiecastCar, Subscription, MarketPrice
 from .forms import DiecastCarForm, FeedbackForm, UserRegistrationForm, SubscriptionForm
 from .razorpay_client import RazorpayClient
@@ -195,10 +196,13 @@ def dashboard(request):
         months.append(f"{month_name} {int(item['year'])}")
         purchase_counts.append(item['count'])
         
+    # Flag for template to conditionally render the chart
+    has_trend_data = len(months) > 0
+    
     # Convert to JSON for the template
-    import json
     months_json = json.dumps(months)
     purchase_counts_json = json.dumps(purchase_counts)
+    status_stats_json = json.dumps(status_stats)
     
     market_change_pct = None
     if market_previous_total > 0:
@@ -234,6 +238,8 @@ def dashboard(request):
         'scale_counts': scale_counts,
         'months': months_json,
         'purchase_counts': purchase_counts_json,
+        'status_stats_json': status_stats_json,
+        'has_trend_data': has_trend_data,
         # Status choices for filter dropdown
         'status_choices': status_choices
     }

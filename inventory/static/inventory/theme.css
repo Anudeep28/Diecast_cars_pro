@@ -1,0 +1,167 @@
+/* DiecastCollector Pro - Global Theme
+   Applies a consistent modern design across all pages. */
+
+:root {
+  /* Brand palette */
+  --brand-primary: #6366f1; /* Indigo 500 */
+  --brand-success: #16a34a; /* Green 600 */
+  --brand-info: #06b6d4;    /* Cyan 500 */
+  --brand-warning: #f59e0b; /* Amber 500 */
+  --brand-danger: #ef4444;  /* Red 500 */
+
+  /* Surfaces & text */
+  --bg-start: #f8fafc;      /* Slate 50 */
+  --bg-end: #eef2ff;        /* Indigo 50 */
+  --text-base: #0f172a;     /* Slate 900 */
+  --text-muted: #6b7280;    /* Slate 500 */
+  --surface: #ffffff;       /* White */
+  --surface-2: rgba(255,255,255,0.92);
+  --border-color: rgba(2,6,23,0.06);
+  --shadow-sm: 0 2px 4px rgba(2,6,23,0.06);
+  --shadow-md: 0 6px 16px rgba(2,6,23,0.08);
+  --shadow-lg: 0 12px 30px rgba(2,6,23,0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Force light palette even when user prefers dark */
+    --bg-start: #f8fafc;      /* Slate 50 */
+    --bg-end: #eef2ff;        /* Indigo 50 */
+    --text-base: #0f172a;     /* Slate 900 */
+    --text-muted: #6b7280;    /* Slate 500 */
+    --surface: #ffffff;       /* White */
+    --surface-2: rgba(255,255,255,0.92);
+    --border-color: rgba(2,6,23,0.06);
+    --shadow-sm: 0 2px 4px rgba(2,6,23,0.06);
+    --shadow-md: 0 6px 16px rgba(2,6,23,0.08);
+    --shadow-lg: 0 12px 30px rgba(2,6,23,0.12);
+  }
+}
+
+/* Page baseline */
+body {
+  padding-top: 4.5rem;
+  background: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%) fixed;
+  color: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.navbar-brand { font-weight: 700; }
+
+/* Brand theming for Bootstrap utilities */
+.bg-primary { background-color: var(--brand-primary) !important; }
+.text-primary { color: var(--brand-primary) !important; }
+.border-primary { border-color: var(--brand-primary) !important; }
+.btn-primary {
+  background-color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+  color: #fff !important;
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-color: #4f46e5 !important; /* Indigo 600 */
+  border-color: #4f46e5 !important;
+}
+.btn-outline-primary {
+  color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+}
+.btn-outline-primary:hover, .btn-outline-primary:focus {
+  background-color: var(--brand-primary) !important;
+  color: #fff !important;
+}
+
+/* Cards */
+.card { border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-md); background: var(--surface); }
+.card-header { border-top-left-radius: 14px; border-top-right-radius: 14px; }
+
+/* Utility surfaces */
+.dashboard-stats { padding: 15px; background: var(--surface-2); border-radius: 5px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+
+/* Status colors (text helpers) */
+.status-purchased { color: #0d6efd; }
+.status-shipped   { color: #ffc107; }
+.status-delivered { color: #28a745; }
+.status-overdue   { color: #dc3545; }
+
+/* Tables */
+/* Keep sticky headers but don't override Bootstrap's table-light/dark variants */
+.table thead:not(.table-light):not(.table-dark) th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); }
+.table-hover tbody tr:hover { background-color: rgba(99,102,241,0.06); }
+
+@media (prefers-color-scheme: dark) {
+  .table-hover tbody tr:hover { background-color: rgba(99,102,241,0.06); }
+}
+
+/* Hero section (used on dashboard and can be reused) */
+.hero-card {
+  background: radial-gradient(1200px 300px at 10% 0%, rgba(99,102,241,0.20), transparent 60%),
+              linear-gradient(135deg, rgba(99,102,241,0.10), rgba(22,163,74,0.08));
+  border: 1px solid rgba(99,102,241,0.15);
+  border-radius: 18px;
+  padding: 22px 22px 16px 22px;
+  box-shadow: var(--shadow-lg);
+}
+.hero-card .hero-title, .hero-card h1, .hero-card h2, .hero-card h3 { color: #0f172a; }
+.hero-card .text-muted { color: var(--text-muted) !important; }
+/* Rounded quick action buttons */
+.quick-actions .btn { border-radius: 999px; }
+
+/* Navbar link contrast */
+.navbar-dark .navbar-nav .nav-link { color: rgba(255,255,255,0.92); }
+.navbar-dark .navbar-nav .nav-link:hover,
+.navbar-dark .navbar-nav .nav-link:focus,
+.navbar-dark .navbar-nav .nav-link.active { color: #ffffff; }
+
+@media (prefers-color-scheme: dark) {
+  .hero-card { border-color: rgba(99,102,241,0.15); }
+  .hero-card .hero-title, .hero-card h1, .hero-card h2, .hero-card h3 { color: #0f172a; }
+}
+
+/* KPI metric cards */
+.metric-card { background: var(--surface-2); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 14px; transition: transform .18s ease, box-shadow .18s ease; position: relative; overflow: hidden; }
+.metric-card::after { content: ""; position: absolute; inset: -40% -40% auto auto; width: 120px; height: 120px; background: radial-gradient(80px 80px at center, rgba(99,102,241,.13), transparent 70%); transform: rotate(25deg); }
+.metric-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.metric-label { color: var(--text-muted); font-size: .78rem; margin-bottom: 2px; letter-spacing: .01em; }
+.metric-value { font-weight: 800; font-size: 1.1rem; }
+.metric-icon { font-size: 1.2rem; opacity: .9; margin-right: .55rem; }
+
+/* Chips */
+.chip { display: inline-flex; align-items: center; gap: .4rem; padding: .28rem .65rem; border-radius: 999px; background: rgba(22,163,74,.08); color: #0a6848; border: 1px solid rgba(22,163,74,.18); font-size: .85rem; }
+.chip .muted { color: var(--text-muted); font-weight: 500; }
+
+/* Accessible adjustments */
+/* Make light headers readable in both themes */
+.card-header.bg-light { background-color: var(--surface-2) !important; color: var(--text-base) !important; border-bottom: 1px solid var(--border-color); }
+
+@media (prefers-color-scheme: dark) {
+  /* Keep chip styling light */
+  .chip { background: rgba(22,163,74,.08); color: #0a6848; border-color: rgba(22,163,74,.18); }
+  .chip .muted { color: var(--text-muted); }
+}
+
+/* Focus visibility for accessibility */
+.btn:focus-visible,
+.form-control:focus-visible,
+.nav-link:focus-visible,
+.dropdown-item:focus-visible,
+.page-link:focus-visible {
+  outline: 3px solid rgba(99,102,241,0.6);
+  outline-offset: 2px;
+}
+
+/* Charts */
+.chart-box { height: 220px; position: relative; }
+
+/* Utilities */
+.thumb-60 { max-width: 60px; max-height: 60px; }
+.img-max-h-300 { max-height: 300px; }
+.hover-bg-light:hover { background-color: #f8f9fa; }
+.cursor-pointer { cursor: pointer; }
+.dropdown-list { z-index: 1050; max-height: 200px; overflow-y: auto; box-shadow: var(--shadow-md); }
+.position-relative { position: relative; }
+.dropdown-item:hover { background-color: #f8f9fa; }
+.input-group-text { cursor: pointer; }
+
+/* Footer */
+footer.bg-light { background-color: var(--surface) !important; border-top: 1px solid var(--border-color); }

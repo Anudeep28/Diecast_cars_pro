@@ -12,7 +12,7 @@
             </div>
             {% if car.image %}
             <div class="text-center p-3">
-                <img src="{{ car.image.url }}" alt="{{ car.model_name }}" class="img-fluid rounded" style="max-height: 300px;">
+                <img src="{{ car.image.url }}" alt="{{ car.model_name }}" class="img-fluid rounded img-max-h-300">
             </div>
             {% endif %}
             <div class="card-body">
@@ -140,7 +140,7 @@
             </div>
             <div class="card-body">
                 <button id="fetch-market-price-btn" class="btn btn-primary w-100">Fetch Market Value</button>
-                <div id="market-price-result" class="mt-3" style="display: none;">
+                <div id="market-price-result" class="mt-3 d-none">
                     <h4>Market Analysis</h4>
                     <p><strong>Average Price:</strong> <span id="average-price"></span></p>
                     <p class="mb-2"><strong>Vs Purchase:</strong> <span id="vs-purchase"></span></p>
@@ -161,13 +161,13 @@
                         </table>
                     </div>
                 </div>
-                <div id="market-price-loading" class="mt-3 text-center" style="display: none;">
+                <div id="market-price-loading" class="mt-3 text-center d-none">
                     <div class="spinner-border" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
                     <p>Fetching data...</p>
                 </div>
-                <div id="market-price-error" class="alert alert-danger mt-3" style="display: none;"></div>
+                <div id="market-price-error" class="alert alert-danger mt-3 d-none"></div>
                 
                 <!-- Manual Add Quote UI -->
                 <button class="btn btn-outline-secondary w-100 mt-2" type="button" data-bs-toggle="collapse" data-bs-target="#manual-quote-collapse" aria-expanded="false" aria-controls="manual-quote-collapse">
@@ -175,7 +175,7 @@
                 </button>
                 <div class="collapse mt-3" id="manual-quote-collapse">
                     <div class="card card-body p-3">
-                        <div id="manual-quote-feedback" class="mt-1" style="display:none;"></div>
+                        <div id="manual-quote-feedback" class="mt-1 d-none"></div>
                         <div class="row g-2">
                             <div class="col-6">
                                 <label for="manual-marketplace" class="form-label">Marketplace</label>
@@ -442,7 +442,7 @@
         let title = (quote && quote.title) ? quote.title : 'No title';
         if (title.length > 40) title = title.substring(0, 37) + '...';
         titleCell.textContent = title;
-        titleCell.style.fontSize = '0.85em';
+        titleCell.classList.add('small');
 
         // Actions cell
         const actionsCell = document.createElement('td');
@@ -574,21 +574,21 @@
         const url = (document.getElementById('manual-url').value || '').trim();
         const seller = (document.getElementById('manual-seller').value || '').trim();
 
-        fb.style.display = 'none';
-        fb.className = '';
         fb.textContent = '';
+        fb.classList.add('d-none');
+        fb.classList.remove('alert', 'alert-warning', 'alert-success', 'alert-danger');
 
         const price = parseFloat(priceStr);
         if (!marketplace) {
-            fb.className = 'alert alert-warning';
             fb.textContent = 'Please select a marketplace.';
-            fb.style.display = 'block';
+            fb.classList.add('alert', 'alert-warning');
+            fb.classList.remove('d-none');
             return;
         }
         if (isNaN(price) || price <= 0) {
-            fb.className = 'alert alert-warning';
             fb.textContent = 'Please enter a valid positive price.';
-            fb.style.display = 'block';
+            fb.classList.add('alert', 'alert-warning');
+            fb.classList.remove('d-none');
             return;
         }
 
@@ -616,7 +616,7 @@
             if (!data || !data.success || !data.quote) throw new Error('Invalid server response');
             // Ensure result visible
             const resultDiv = document.getElementById('market-price-result');
-            if (resultDiv) resultDiv.style.display = 'block';
+            if (resultDiv) resultDiv.classList.remove('d-none');
             // Remove placeholder if present and append row
             const list = document.getElementById('quotes-list');
             if (list) {
@@ -631,13 +631,13 @@
             recalcSummaryFromQuotes();
             appendHistoryRow(data.quote);
             
-            fb.className = 'alert alert-success';
             fb.textContent = 'Quote added successfully.';
-            fb.style.display = 'block';
+            fb.classList.add('alert', 'alert-success');
+            fb.classList.remove('d-none');
         }).catch(err => {
-            fb.className = 'alert alert-danger';
             fb.textContent = 'Error: ' + err.message;
-            fb.style.display = 'block';
+            fb.classList.add('alert', 'alert-danger');
+            fb.classList.remove('d-none');
         }).finally(() => {
             btn.disabled = false;
         });
@@ -680,9 +680,9 @@
         }
 
         // Show loading indicator
-        loadingDiv.style.display = 'block';
-        resultDiv.style.display = 'none';
-        errorDiv.style.display = 'none';
+        loadingDiv.classList.remove('d-none');
+        resultDiv.classList.add('d-none');
+        errorDiv.classList.add('d-none');
 
         fetch(`/api/car/${carId}/fetch_market_price/`)
             .then(response => {
@@ -692,7 +692,7 @@
                 return response.json();
             })
             .then(data => {
-                loadingDiv.style.display = 'none';
+                loadingDiv.classList.add('d-none');
 
                 if (data.average_price_inr) {
                     avgPriceSpan.textContent = `₹${data.average_price_inr}`;
@@ -733,7 +733,7 @@
                     quotesList.appendChild(emptyRow);
                 }
 
-                resultDiv.style.display = 'block';
+                resultDiv.classList.remove('d-none');
 
                 // Update Latest Market Summary (average)
                 if (latestAvgSpan) {
@@ -779,9 +779,9 @@
                 }
             })
             .catch(error => {
-                loadingDiv.style.display = 'none';
+                loadingDiv.classList.add('d-none');
                 errorDiv.textContent = 'Error fetching market price: ' + error.message;
-                errorDiv.style.display = 'block';
+                errorDiv.classList.remove('d-none');
             });
     });
 </script>
