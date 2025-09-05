@@ -587,19 +587,13 @@ def subscription_details(request):
             'expiring_soon': subscription.expiring_soon,
             'time_difference': str(subscription.end_date - timezone.now()) if subscription.end_date else 'No end date',
         })
-        
-        # Fix subscription if needed
-        if not subscription.is_valid and subscription.is_active and subscription.end_date:
-            # End date might be in the past - update it
-            subscription.end_date = timezone.now() + timedelta(days=30)
-            subscription.save()
-            messages.success(request, "Subscription fixed! End date has been updated.")
-            
+
         context = {
             'subscription': subscription,
             'debug_info': debug_info,
             'title': 'Your Subscription - DiecastCollector Pro'
         }
+        return render(request, 'inventory/subscription_details.html', context)
     except Exception as e:
         # If no subscription exists
         debug_info.update({

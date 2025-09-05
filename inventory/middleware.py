@@ -38,17 +38,7 @@ class SubscriptionCheckMiddleware:
             try:
                 subscription = Subscription.objects.get(user=request.user)
                 
-                # Fix subscription if active but end_date is wrong
-                if subscription.is_active and (not subscription.end_date or subscription.end_date < timezone.now()):
-                    from datetime import timedelta
-                    subscription.end_date = timezone.now() + timedelta(days=30)
-                    subscription.save()
-                    messages.success(
-                        request,
-                        "Your subscription has been restored."
-                    )
-                    
-                # Continue with normal checks after potential fix
+                # Do not auto-extend subscriptions; proceed with normal checks
                 if not subscription.is_active:
                     messages.error(
                         request,
