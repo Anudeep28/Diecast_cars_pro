@@ -10,3 +10,6 @@ psycopg2-binary
 forex-python
 pydantic>=2
 google-generativeai
+dj-database-url
+whitenoise
+django-widget-tweaks
