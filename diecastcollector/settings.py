@@ -33,7 +33,7 @@ CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL', '').strip()
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-insecure-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS = [u.strip() for u in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if u.strip()]
