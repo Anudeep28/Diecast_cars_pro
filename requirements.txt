@@ -10,6 +10,7 @@ psycopg2-binary
 forex-python
 pydantic>=2
 google-generativeai
+razorpay
 dj-database-url
 whitenoise
 django-widget-tweaks
