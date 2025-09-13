@@ -6,7 +6,7 @@ class DiecastCarAdmin(admin.ModelAdmin):
     list_display = ('model_name', 'manufacturer', 'user', 'price', 'purchase_date', 'delivery_due_date', 'status')
     list_filter = ('status', 'manufacturer')
     search_fields = ('model_name', 'manufacturer', 'user__username')
-    readonly_fields = ('purchase_date',)
+    readonly_fields = ('purchase_date', 'remaining_payment')
     
     fieldsets = (
         ('Car Information', {
@@ -40,7 +40,7 @@ class DiecastCarAdmin(admin.ModelAdmin):
     list_display = ('model_name', 'manufacturer', 'user', 'price', 'purchase_date', 'delivery_due_date', 'status')
     list_filter = ('status', 'manufacturer')
     search_fields = ('model_name', 'manufacturer', 'user__username')
-    readonly_fields = ('purchase_date',)
+    readonly_fields = ('purchase_date', 'remaining_payment')
     inlines = [CarMarketLinkInline, MarketPriceInline]
     actions = ['update_market_prices_via_web_search']
     
