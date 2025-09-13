@@ -622,3 +622,34 @@ def profile(request):
         'title': 'Profile - DiecastCollector Pro'
     }
     return render(request, 'inventory/profile.html', context)
+
+
+# Debug endpoint (staff-only): show active storage backend and sample image URLs
+@login_required
+def storage_debug(request):
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'forbidden'}, status=403)
+    try:
+        from django.conf import settings
+        info = {
+            'DEFAULT_FILE_STORAGE': getattr(settings, 'DEFAULT_FILE_STORAGE', None),
+            'CLOUDINARY_URL_valid': bool(getattr(settings, 'CLOUDINARY_URL', '').startswith('cloudinary://')),
+            'cloudinary_in_INSTALLED_APPS': 'cloudinary' in settings.INSTALLED_APPS,
+            'cloudinary_storage_in_INSTALLED_APPS': 'cloudinary_storage' in settings.INSTALLED_APPS,
+            'MEDIA_URL': getattr(settings, 'MEDIA_URL', None),
+            'MEDIA_ROOT': str(getattr(settings, 'MEDIA_ROOT', '')),
+            'DEBUG': bool(getattr(settings, 'DEBUG', None)),
+        }
+        samples = []
+        for car in DiecastCar.objects.filter(user=request.user).order_by('-id')[:3]:
+            item = {'id': car.id, 'model': car.model_name}
+            if car.image:
+                item['image_name'] = car.image.name
+                try:
+                    item['image_url'] = car.image.url
+                except Exception as e:
+                    item['image_url_error'] = str(e)
+            samples.append(item)
+        return JsonResponse({'ok': True, 'info': info, 'samples': samples})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)

@@ -41,4 +41,6 @@ urlpatterns = [
     path('password-reset-complete/', 
         auth_views.PasswordResetCompleteView.as_view(template_name='inventory/password_reset_complete.html'), 
         name='password_reset_complete'),
+    # Debug: storage backend info (staff-only)
+    path('debug/storage/', views.storage_debug, name='storage_debug'),
 ]
