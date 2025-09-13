@@ -21,6 +21,10 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Optional: Cloudinary URL for media storage in production
+# Expected format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL', '').strip()
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -48,8 +52,8 @@ INSTALLED_APPS = [
     'widget_tweaks',
 ]
 
-# Add Cloudinary apps (media storage) only if configured
-if os.environ.get('CLOUDINARY_URL'):
+# Add Cloudinary apps (media storage) only if properly configured
+if CLOUDINARY_URL.startswith('cloudinary://'):
     INSTALLED_APPS += ['cloudinary_storage', 'cloudinary']
 
 MIDDLEWARE = [
@@ -140,9 +144,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# In production (e.g., Heroku), use Cloudinary for media storage if configured
+# Use Cloudinary for media storage whenever configured.
 # Heroku's filesystem is ephemeral and cannot serve user uploads.
-if not DEBUG and os.environ.get('CLOUDINARY_URL'):
+if CLOUDINARY_URL.startswith('cloudinary://'):
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # Default primary key field type
