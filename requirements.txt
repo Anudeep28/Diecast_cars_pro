@@ -14,3 +14,8 @@ razorpay
 dj-database-url
 whitenoise
 django-widget-tweaks
+
+# Media storage and image processing
+Pillow
+cloudinary
+django-cloudinary-storage
