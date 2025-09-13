@@ -65,7 +65,7 @@ INSTALLED_APPS = [
 ]
 
 # Add Cloudinary apps (media storage) only if properly configured
-if CLOUDINARY_URL.startswith('cloudinary://'):
+if CLOUDINARY_URL and ('cloudinary://' in CLOUDINARY_URL.lower()):
     INSTALLED_APPS += ['cloudinary_storage', 'cloudinary']
 
 MIDDLEWARE = [
