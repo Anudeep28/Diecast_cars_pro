@@ -23,7 +23,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Optional: Cloudinary URL for media storage in production
 # Expected format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+# Get and clean up CLOUDINARY_URL
 CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL', '').strip()
+
+# Debug: Print CLOUDINARY_URL format (redacted)
+if CLOUDINARY_URL:
+    parts = CLOUDINARY_URL.split('@')
+    if len(parts) > 1:
+        cloud_name = parts[1]
+        # Only show first few chars of key/secret portion
+        key_secret = parts[0][:15] + '...' if len(parts[0]) > 15 else parts[0]
+        print(f"CLOUDINARY_URL format check: {key_secret}@{cloud_name}")
+    else:
+        print(f"CLOUDINARY_URL does not contain '@' separator: {CLOUDINARY_URL[:10]}...")
 
 
 # Quick-start development settings - unsuitable for production
@@ -146,8 +158,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Use Cloudinary for media storage whenever configured.
 # Heroku's filesystem is ephemeral and cannot serve user uploads.
-if CLOUDINARY_URL.startswith('cloudinary://'):
+if CLOUDINARY_URL and ('cloudinary://' in CLOUDINARY_URL.lower()):
+    print(f"Activating Cloudinary storage backend (found cloudinary:// URL)")
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+else:
+    print(f"Using default file storage (CLOUDINARY_URL not properly configured)")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
