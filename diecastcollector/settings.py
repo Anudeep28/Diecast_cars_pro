@@ -45,10 +45,18 @@ if CLOUDINARY_URL:
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-insecure-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'  # Default to True for local dev; set to False in production
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS = [u.strip() for u in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if u.strip()]
+# Provide sane defaults for local development to avoid ALLOWED_HOSTS errors
+if DEBUG and not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+if DEBUG and not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+    ]
 
 
 # Application definition
@@ -65,8 +73,8 @@ INSTALLED_APPS = [
 ]
 
 # Add Cloudinary apps (media storage) only if properly configured
-# Define a reusable flag for Cloudinary activation
-CLOUDINARY_ACTIVE = bool(CLOUDINARY_URL and CLOUDINARY_URL.lower().startswith('cloudinary://'))
+# Define a reusable flag for Cloudinary activation: ONLY when DEBUG is False
+CLOUDINARY_ACTIVE = (not DEBUG) and bool(CLOUDINARY_URL and CLOUDINARY_URL.lower().startswith('cloudinary://'))
 if CLOUDINARY_ACTIVE:
     if 'cloudinary_storage' not in INSTALLED_APPS:
         INSTALLED_APPS.append('cloudinary_storage')
@@ -110,13 +118,23 @@ WSGI_APPLICATION = 'diecastcollector.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=600,
-        ssl_require=not DEBUG,
-    )
-}
+if DEBUG:
+    # Always use local SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    # In production, expect DATABASE_URL to be provided (e.g., by Heroku)
+    DATABASES = {
+        'default': dj_database_url.parse(
+            os.environ.get('DATABASE_URL', ''),
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
 
 
 # Password validation
