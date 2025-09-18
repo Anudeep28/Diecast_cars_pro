@@ -28,16 +28,16 @@ _FX_CACHE = {"ts": 0.0, "per_inr": {}}  # maps CURRENCY -> amount of that curren
 _FX_TTL_SECONDS = 3600
 
 _CURRENCY_MAP = {
-    '₹': 'INR', 'RS': 'INR', 'RS.': 'INR', 'INR': 'INR',
-    '$': 'USD', 'US$': 'USD', 'USD': 'USD',
-    '€': 'EUR', 'EUR': 'EUR',
-    '£': 'GBP', 'GBP': 'GBP',
-    '¥': 'JPY', 'JPY': 'JPY',
-    'C$': 'CAD', 'CAD': 'CAD',
-    'A$': 'AUD', 'AUD': 'AUD',
-    'SG$': 'SGD', 'SGD': 'SGD',
-    'RM': 'MYR', 'MYR': 'MYR',
-    'CNY': 'CNY', 'RMB': 'CNY',
+    '₹': 'INR', 'RS': 'INR', 'RS.': 'INR', 'INR': 'INR', 'Rupees': 'INR', 'rupees': 'INR',
+    '$': 'USD', 'US$': 'USD', 'USD': 'USD', 'US Dollar': 'USD', 'US Dollars': 'USD',
+    '€': 'EUR', 'EUR': 'EUR', 'Euro': 'EUR', 'Euros': 'EUR',
+    '£': 'GBP', 'GBP': 'GBP', 'Pound': 'GBP', 'Pounds': 'GBP',
+    '¥': 'JPY', 'JPY': 'JPY', 'Yen': 'JPY',
+    'C$': 'CAD', 'CAD': 'CAD', 'CA$': 'CAD', 'Canadian Dollar': 'CAD',
+    'A$': 'AUD', 'AUD': 'AUD', 'Australian Dollar': 'AUD',
+    'SG$': 'SGD', 'SGD': 'SGD', 'Singapore Dollar': 'SGD',
+    'RM': 'MYR', 'MYR': 'MYR', 'Ringgit': 'MYR',
+    'CNY': 'CNY', 'RMB': 'CNY', 'Yuan': 'CNY',
 }
 
 
@@ -48,17 +48,35 @@ def _normalize_currency(cur: Optional[str]) -> str:
     if not s:
         return 'INR'
     up = s.upper()
+    
+    # Check for exact matches in currency map
     if up in _CURRENCY_MAP:
         return _CURRENCY_MAP[up]
+    
+    # Check for partial matches in currency map
+    for key, value in _CURRENCY_MAP.items():
+        if up.startswith(key.upper()) or up.endswith(key.upper()):
+            return value
+    
     # Single-symbol checks
     if s in _CURRENCY_MAP:
         return _CURRENCY_MAP[s]
+    
     # Common prefixes
-    if up.startswith('US$'):
+    if up.startswith('US$') or up.startswith('USD'):
         return 'USD'
-    if up.startswith('RS'):
+    if up.startswith('RS') or up.startswith('INR') or 'RUPEE' in up:
         return 'INR'
-    return up  # assume it's already an ISO code like 'USD'
+    
+    # Check if it's already an ISO code
+    if up in ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'SGD', 'MYR', 'CNY']:
+        return up
+    
+    # Special check for Indian Rupee when no symbol is present but context suggests INR
+    if '₹' in s or 'RS.' in up or 'RUPEES' in up:
+        return 'INR'
+    
+    return 'INR'  # Default to INR (Indian Rupees) if no match found
 
 
 def _get_per_inr_rates() -> dict:
@@ -128,7 +146,7 @@ class BaseProvider:
 
 class WebSearchProvider(BaseProvider):
     def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
-        """Simplified web search using crawl4ai + Gemini extraction with intelligent filtering."""
+        """Use new agentic search for robust market price extraction."""
         logger = logging.getLogger(__name__)
         gemini_key = getattr(settings, 'GEMINI_API_KEY', None)
         
@@ -140,71 +158,70 @@ class WebSearchProvider(BaseProvider):
         model = (car.model_name or '').strip()
         scale = (car.scale or '').strip()
         
-        # Use the AI market scraper as the primary method
+        # Use the new agentic search implementation
         try:
             # Ensure car has required attributes
             if not manu or not model:
                 return []
-                
-            items = None
-            try:
-                from .ai_market_scraper import search_market_prices_for_car as ai_search_market_prices_for_car
-                result = ai_search_market_prices_for_car(car, gemini_key, num_results=4)
-                if result and isinstance(result, tuple) and len(result) >= 2:
-                    items = result[0]  # First item is extracted data
-                    # Second is extracted markdown if we need it
-                    self.last_extracted_markdown = result[1] if len(result) > 1 else {}
-                    # Display the Gemini-generated search query in the terminal
-                    if len(result) > 2 and result[2]:
-                        query = result[2]
-                        # Use logger for more reliable terminal output
-                        logger.info("\n" + "=" * 80)
-                        logger.info(f"GEMINI SEARCH QUERY: \"{query}\"")
-                        logger.info("=" * 80)
-                        # Also use print for direct terminal output
-                        print("\n" + "=" * 80)
-                        print(f"GEMINI SEARCH QUERY: \"{query}\"")
-                        print("=" * 80)
-                        # Store the query for potential later use
-                        self.last_search_query = query
-            except Exception as e:
-                pass
+            
+            # Import and use the new agentic search
+            from .agentic_market_search import search_market_prices_agentic
+            
+            result = search_market_prices_agentic(car, gemini_key, num_results=3)
+            
+            if not result.get('success') or not result.get('listings'):
+                logger.warning(f"Agentic search returned no results: {result.get('error', 'Unknown error')}")
+                return []
+            
+            # Store the search query for later use
+            if result.get('query'):
+                self.last_search_query = result['query']
+            
+            # Convert listings to MarketQuote objects
             quotes: List[MarketQuote] = []
-            for item in items or []:
+            print(f"\n📝 MARKET SERVICE DEBUG: Processing {len(result.get('listings', []))} listings from agentic search")
+            
+            for i, listing in enumerate(result.get('listings', []), 1):
                 try:
-                    # Simple validation - just check if we have a valid price
-                    if not hasattr(item, 'price') or not item.price or item.price <= 0:
+                    # Validate price
+                    price = listing.get('price', 0)
+                    if price <= 0:
+                        print(f"  {i}. ❌ Skipped: Invalid price {price}")
                         continue
                     
-                    # INTELLIGENT FILTERING: Validate if the extracted item matches our target car
-                    if not self._is_relevant_match(car, item, logger):
-                        continue
-                        
                     # Extract seller from URL if not provided
-                    seller = getattr(item, 'seller', None)
-                    if not seller and getattr(item, 'url', None):
-                        seller = self._extract_seller_from_url(item.url)
+                    seller = listing.get('seller')
+                    if not seller and listing.get('url'):
+                        seller = self._extract_seller_from_url(listing['url'])
                     
                     quote = MarketQuote(
                         'web',
-                        Decimal(str(item.price)),
-                        currency=getattr(item, 'currency', 'USD') or 'USD',
-                        source_listing_url=getattr(item, 'url', None),
-                        title=getattr(item, 'title', None),
-                        model_name=getattr(item, 'model_name', None),
-                        manufacturer=getattr(item, 'manufacturer', None),
-                        scale=getattr(item, 'scale', None),
+                        Decimal(str(price)),
+                        currency=listing.get('currency', 'INR'),
+                        source_listing_url=listing.get('url'),
+                        title=listing.get('title'),
+                        model_name=listing.get('model_name', model),
+                        manufacturer=listing.get('manufacturer', manu),
+                        scale=listing.get('scale', scale),
                         seller=seller,
                     )
                     
                     quotes.append(quote)
+                    print(f"  {i}. ✅ Added: {quote.currency} {quote.price} from {seller or 'Unknown'}")
+                    logger.info(f"Added quote: {quote.currency} {quote.price} from {seller or 'Unknown'}")
+                    
                 except Exception as e:
+                    print(f"  {i}. ❌ Failed to process listing: {e}")
+                    logger.warning(f"Failed to process listing: {e}")
                     continue
+            
+            print(f"📊 MARKET SERVICE: Returning {len(quotes)} quotes from agentic search\n")
+            logger.info(f"Returning {len(quotes)} quotes from agentic search")
+            return quotes
                     
         except Exception as e:
-            pass
-            
-        return quotes
+            logger.error(f"Agentic search failed: {e}")
+            return []
         
     def _is_relevant_match(self, target_car: DiecastCar, extracted_item, logger) -> bool:
         """AI-powered agentic validation to check if extracted item matches target car specifications."""
@@ -546,6 +563,7 @@ class MarketService:
                     
                     # Only check for exact URL duplicates in this run
                     if is_duplicate(quote_details, quotes_by_source[marketplace]):
+                        print(f"    ⚠️  Skipping duplicate URL: {q.source_listing_url}")
                         continue
                     
                     # Save to database with additional fields
@@ -699,9 +717,12 @@ def _extract_price_from_text(text: str) -> Optional[Tuple[Decimal, str]]:
                 continue
             s = m.group(0)
             s_up = s.upper()
-            currency = 'INR'
+            currency = 'INR'  # Default to INR (Indian Rupees) if no clear currency indicators are found
+            
+            # Check for Indian Rupee indicators first (more specific)
             if '₹' in s or 'INR' in s_up or 'RS' in s_up:
                 currency = 'INR'
+            # Then check for other currencies
             elif 'US$' in s_up or 'USD' in s_up or '$' in s:
                 currency = 'USD'
             elif '€' in s or 'EUR' in s_up:
@@ -720,6 +741,15 @@ def _extract_price_from_text(text: str) -> Optional[Tuple[Decimal, str]]:
                 currency = 'CNY'
             elif '¥' in s or 'JPY' in s_up:
                 currency = 'JPY'
+            else:
+                # If no clear currency symbol found, but we matched an INR pattern, set to INR
+                # Check if the regex pattern is one of our INR patterns
+                inr_patterns = [r'₹', r'Rs', r'INR']
+                if any(pattern in rx.pattern.decode() for pattern in inr_patterns):
+                    currency = 'INR'
+                else:
+                    currency = 'INR'  # Default fallback to INR
+            
             return val, currency
     return None
 
