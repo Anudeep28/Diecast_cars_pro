@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models import F
-from datetime import timedelta
+from datetime import timedelta, datetime
 import uuid
 import os
 
@@ -175,3 +175,75 @@ class MarketPrice(models.Model):
 
     def __str__(self):
         return f"{self.car} {self.marketplace} {self.price} {self.currency} @ {self.fetched_at}"
+
+
+class MarketFetchCredit(models.Model):
+    """
+    Tracks daily market fetch usage for each user.
+    Each user gets 5 credits per day that reset after 24 hours.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='market_fetch_credit')
+    credits_used = models.IntegerField(default=0, help_text='Number of market fetches used today')
+    last_reset_date = models.DateField(default=timezone.now, help_text='Date when credits were last reset')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    DAILY_LIMIT = 5  # Maximum fetches per day
+    
+    class Meta:
+        verbose_name = 'Market Fetch Credit'
+        verbose_name_plural = 'Market Fetch Credits'
+        
+    def __str__(self):
+        return f"{self.user.username}: {self.credits_used}/{self.DAILY_LIMIT} used"
+    
+    @property
+    def credits_remaining(self):
+        """Return remaining credits for today"""
+        self.check_and_reset_if_needed()
+        return max(0, self.DAILY_LIMIT - self.credits_used)
+    
+    @property
+    def is_exhausted(self):
+        """Check if user has exhausted their daily credits"""
+        return self.credits_remaining <= 0
+    
+    def check_and_reset_if_needed(self):
+        """Reset credits if it's a new day"""
+        today = timezone.now().date()
+        if self.last_reset_date < today:
+            self.credits_used = 0
+            self.last_reset_date = today
+            self.save(update_fields=['credits_used', 'last_reset_date', 'updated_at'])
+    
+    def consume_credit(self):
+        """
+        Consume one credit if available.
+        Returns True if credit was consumed, False if exhausted.
+        """
+        self.check_and_reset_if_needed()
+        if self.is_exhausted:
+            return False
+        
+        self.credits_used += 1
+        self.save(update_fields=['credits_used', 'updated_at'])
+        return True
+    
+    @property 
+    def next_reset_time(self):
+        """Get the next reset time (midnight next day)"""
+        tomorrow = self.last_reset_date + timedelta(days=1)
+        return timezone.make_aware(
+            datetime.combine(tomorrow, datetime.min.time())
+        )
+    
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        """Get or create credit tracker for user"""
+        credit, created = cls.objects.get_or_create(
+            user=user,
+            defaults={'credits_used': 0, 'last_reset_date': timezone.now().date()}
+        )
+        if not created:
+            credit.check_and_reset_if_needed()
+        return credit

@@ -153,8 +153,8 @@
             </div>
         </div>
         
-        <!-- Monthly Activity -->
-        <div class="card mb-3">
+        <!-- Monthly Activity - Compact -->
+        <div class="card">
             <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Monthly Activity</h6>
             </div>
@@ -163,53 +163,64 @@
                 <h3 class="text-primary mb-0">{{ cars_this_month }}</h3>
             </div>
         </div>
-        
-        <!-- Seller Ratings -->
-        <div class="card mb-3">
-            <div class="card-header bg-info text-white py-2">
-                <h6 class="mb-0">Portfolio Valuation</h6>
-            </div>
-            <div class="card-body">
-                <button id="calculate-portfolio-btn" class="btn btn-info">Calculate Portfolio Value</button>
-                <div id="portfolio-results-container" class="mt-3 d-none">
-                    <div id="portfolio-spinner" class="spinner-border text-info d-none" role="status">
-                        <span class="visually-hidden">Loading...</span>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- Portfolio Valuation & Seller Ratings Row -->
+        <div class="row mb-3">
+            <!-- Portfolio Valuation -->
+            <div class="col-lg-8 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white py-2">
+                        <h6 class="mb-0">Portfolio Valuation</h6>
                     </div>
-                    <div id="portfolio-results"></div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">Calculate portfolio value using existing market data and purchase prices (no new data fetching).</p>
+                        <button id="calculate-portfolio-btn" class="btn btn-info">Calculate Portfolio Value</button>
+                        <div id="portfolio-results-container" class="mt-3 d-none">
+                            <div id="portfolio-spinner" class="spinner-border text-info d-none" role="status">
+                                <span class="visually-hidden">Calculating...</span>
+                            </div>
+                            <div id="portfolio-results"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seller Ratings -->
+            <div class="col-lg-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white py-2">
+                        <h6 class="mb-0">Seller Ratings</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="small">Seller</th>
+                                        <th class="text-end small">Rating</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="small">
+                                    {% for seller, data in seller_ratings.items %}
+                                    <tr class="{% if data.has_overdue %}table-danger fw-semibold{% endif %}">
+                                        <td>{{ seller }} {% if data.has_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}</td>
+                                        <td class="text-end"><span class="fw-semibold">{{ data.avg_rating }}</span> <i class="bi bi-star-fill text-warning"></i> <span class="text-muted">({{ data.total_ratings }})</span></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-center">No ratings yet</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header bg-primary text-white py-2">
-                <h6 class="mb-0">Seller Ratings</h6>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="small">Seller</th>
-                            <th class="text-end small">Rating</th>
-                        </tr>
-                    </thead>
-                    <tbody class="small">
-                        {% for seller, data in seller_ratings.items %}
-                        <tr class="{% if data.has_overdue %}table-danger fw-semibold{% endif %}">
-                            <td>{{ seller }} {% if data.has_overdue %}<span class="badge bg-danger ms-1">Overdue</span>{% endif %}</td>
-                            <td class="text-end"><span class="fw-semibold">{{ data.avg_rating }}</span> <i class="bi bi-star-fill text-warning"></i> <span class="text-muted">({{ data.total_ratings }})</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="2" class="text-center">No ratings yet</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-8">
         <!-- Top Manufacturers & Scales -->  
         <div class="card mb-3">
             <div class="card-header bg-primary text-white py-2">
@@ -421,21 +432,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     spinner.classList.add('d-none');
                     let content = `<h5>Total Portfolio Value: <span class="text-success">₹${data.total_portfolio_value_inr}</span></h5>`;
-                    content += `<p class="mb-1">Cars Processed: ${data.cars_processed} / ${data.total_cars}</p>`;
-                    if (data.cars_failed > 0) {
-                        content += `<p class="text-danger">Cars Failed: ${data.cars_failed}</p>`;
-                    }
+                    
+                    // Summary statistics
+                    content += '<div class="row text-center mt-3 mb-3">';
+                    content += `<div class="col-4"><small class="text-muted">Market Data</small><br><strong class="text-info">${data.cars_with_market_data}</strong></div>`;
+                    content += `<div class="col-4"><small class="text-muted">Purchase Price</small><br><strong class="text-warning">${data.cars_with_purchase_price}</strong></div>`;
+                    content += `<div class="col-4"><small class="text-muted">No Price</small><br><strong class="text-danger">${data.cars_without_any_price}</strong></div>`;
+                    content += '</div>';
+                    
+                    content += `<p class="mb-2"><small class="text-muted">Total Cars: ${data.total_cars}</small></p>`;
                     
                     if(data.results && data.results.length > 0) {
-                        content += '<ul class="list-group mt-2">';
+                        content += '<div class="mt-3">';
+                        content += '<div class="table-responsive" style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">';
+                        content += '<table class="table table-sm table-striped mb-0">';
+                        content += '<thead class="table-light sticky-top"><tr><th>Car</th><th>Value</th><th>Source</th></tr></thead>';
+                        content += '<tbody>';
                         data.results.forEach(item => {
-                            if(item.error) {
-                                content += `<li class="list-group-item list-group-item-danger">${item.model_name}: ${item.error}</li>`;
+                            let sourceClass = '';
+                            if (item.value_source.includes('Market Data')) {
+                                sourceClass = 'text-info';
+                            } else if (item.value_source === 'Purchase Price') {
+                                sourceClass = 'text-warning';
                             } else {
-                                content += `<li class="list-group-item">${item.model_name}: ₹${item.average_price_inr}</li>`;
+                                sourceClass = 'text-danger';
                             }
+                            
+                            content += `<tr>`;
+                            content += `<td><strong>${item.model_name}</strong><br><small class="text-muted">${item.manufacturer}</small></td>`;
+                            content += `<td>₹${item.value_inr}</td>`;
+                            content += `<td><span class="${sourceClass}">${item.value_source}</span>`;
+                            if (item.market_data_date) {
+                                const date = new Date(item.market_data_date);
+                                content += `<br><small class="text-muted">${date.toLocaleDateString()}</small>`;
+                            }
+                            content += `</td>`;
+                            content += `</tr>`;
                         });
-                        content += '</ul>';
+                        content += '</tbody></table>';
+                        content += '</div>';
+                        content += '</div>';
                     }
                     resultsDiv.innerHTML = content;
                 })

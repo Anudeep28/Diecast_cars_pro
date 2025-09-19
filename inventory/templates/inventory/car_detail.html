@@ -139,6 +139,17 @@
                 <h4>Market Value</h4>
             </div>
             <div class="card-body">
+                <!-- Market Fetch Credits Status -->
+                <div id="credits-status" class="mb-3 p-2 rounded border bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small"><strong>Daily Fetch Credits:</strong></span>
+                        <span id="credits-info" class="badge bg-secondary">Loading...</span>
+                    </div>
+                    <div id="credits-warning" class="mt-1 d-none">
+                        <small class="text-muted">Credits reset at: <span id="next-reset-time">--</span></small>
+                    </div>
+                </div>
+                
                 <button id="fetch-market-price-btn" class="btn btn-primary w-100">Fetch Market Value</button>
                 <div id="market-price-result" class="mt-3 d-none">
                     <h4>Market Analysis</h4>
@@ -366,11 +377,74 @@
 {% block extra_js %}
 <script>
     // Helpers and global handlers
-    const carIdGlobal = Number("{{ car.pk }}");
-    const purchasePriceInrGlobal = (function() {
-        const v = parseFloat("{{ car.price }}");
-        return isNaN(v) ? 0 : v;
-    })();
+    const carIdGlobal = {{ car.pk }};
+    const purchasePriceInrGlobal = {{ car.price|default:0 }};
+
+    // Credit management variables
+    let currentCredits = null;
+    
+    // Load initial credit status
+    function loadCreditStatus() {
+        fetch('/api/market_credits/status/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch credit status');
+                }
+                return response.json();
+            })
+            .then(data => {
+                currentCredits = data;
+                updateCreditDisplay(data);
+                updateFetchButtonState(data);
+            })
+            .catch(error => {
+                console.error('Error loading credit status:', error);
+                document.getElementById('credits-info').textContent = 'Error loading credits';
+                document.getElementById('credits-info').className = 'badge bg-danger';
+            });
+    }
+    
+    function updateCreditDisplay(creditData) {
+        const creditsInfo = document.getElementById('credits-info');
+        const creditsWarning = document.getElementById('credits-warning');
+        const nextResetSpan = document.getElementById('next-reset-time');
+        
+        if (creditData.is_exhausted) {
+            creditsInfo.textContent = `0/${creditData.daily_limit}`;
+            creditsInfo.className = 'badge bg-danger';
+            creditsWarning.classList.remove('d-none');
+            
+            // Format reset time
+            try {
+                const resetTime = new Date(creditData.next_reset_time);
+                nextResetSpan.textContent = resetTime.toLocaleString();
+            } catch (e) {
+                nextResetSpan.textContent = 'Unknown';
+            }
+        } else {
+            creditsInfo.textContent = `${creditData.credits_remaining}/${creditData.daily_limit}`;
+            if (creditData.credits_remaining <= 1) {
+                creditsInfo.className = 'badge bg-warning';
+            } else {
+                creditsInfo.className = 'badge bg-success';
+            }
+            creditsWarning.classList.add('d-none');
+        }
+    }
+    
+    function updateFetchButtonState(creditData) {
+        const fetchBtn = document.getElementById('fetch-market-price-btn');
+        
+        if (creditData.is_exhausted) {
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = 'Daily Limit Reached';
+            fetchBtn.className = 'btn btn-secondary w-100';
+        } else {
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = 'Fetch Market Value';
+            fetchBtn.className = 'btn btn-primary w-100';
+        }
+    }
 
     function getCookie(name) {
         let cookieValue = null;
@@ -687,11 +761,34 @@
         fetch(`/api/car/${carId}/fetch_market_price/`)
             .then(response => {
                 if (!response.ok) {
-                    return response.text().then(text => { throw new Error(text || 'Network response was not ok') });
+                    return response.json().then(data => {
+                        if (response.status === 429 && data.error === 'daily_limit_exceeded') {
+                            // Handle rate limiting
+                            throw new Error(`Daily limit exceeded. ${data.message}`);
+                        }
+                        throw new Error(data.message || 'Network response was not ok');
+                    }).catch(jsonError => {
+                        // If JSON parsing fails, try text
+                        return response.text().then(text => { 
+                            throw new Error(text || 'Network response was not ok'); 
+                        });
+                    });
                 }
                 return response.json();
             })
             .then(data => {
+                // Update credit status if provided
+                if (data.credits_remaining !== undefined) {
+                    const updatedCredits = {
+                        credits_remaining: data.credits_remaining,
+                        daily_limit: data.daily_limit,
+                        next_reset_time: data.next_reset_time,
+                        is_exhausted: data.credits_remaining <= 0
+                    };
+                    currentCredits = updatedCredits;
+                    updateCreditDisplay(updatedCredits);
+                    updateFetchButtonState(updatedCredits);
+                }
                 loadingDiv.classList.add('d-none');
 
                 if (data.average_price_inr) {
@@ -783,6 +880,11 @@
                 errorDiv.textContent = 'Error fetching market price: ' + error.message;
                 errorDiv.classList.remove('d-none');
             });
+    });
+    
+    // Load credit status when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCreditStatus();
     });
 </script>
 {% endblock %}

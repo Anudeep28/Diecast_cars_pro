@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DiecastCar, CarMarketLink, MarketPrice
+from .models import DiecastCar, CarMarketLink, MarketPrice, MarketFetchCredit
 
 @admin.register(DiecastCar)
 class DiecastCarAdmin(admin.ModelAdmin):
@@ -99,3 +99,23 @@ class MarketPriceAdmin(admin.ModelAdmin):
     list_display = ('car', 'marketplace', 'price', 'currency', 'fetched_at')
     list_filter = ('marketplace', 'currency')
     search_fields = ('car__model_name', 'car__manufacturer')
+
+
+@admin.register(MarketFetchCredit)
+class MarketFetchCreditAdmin(admin.ModelAdmin):
+    list_display = ('user', 'credits_used', 'credits_remaining', 'last_reset_date', 'updated_at')
+    list_filter = ('last_reset_date',)
+    search_fields = ('user__username',)
+    readonly_fields = ('credits_remaining', 'next_reset_time', 'created_at', 'updated_at')
+    
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Credit Usage', {
+            'fields': ('credits_used', 'credits_remaining', 'last_reset_date')
+        }),
+        ('Timestamps', {
+            'fields': ('next_reset_time', 'created_at', 'updated_at')
+        }),
+    )
