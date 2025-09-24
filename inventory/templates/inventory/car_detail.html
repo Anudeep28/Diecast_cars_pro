@@ -377,8 +377,8 @@
 {% block extra_js %}
 <script>
     // Helpers and global handlers
-    const carIdGlobal = {{ car.pk }};
-    const purchasePriceInrGlobal = {{ car.price|default:0 }};
+    const carIdGlobal = Number('{{ car.pk }}');
+    const purchasePriceInrGlobal = Number('{{ car.price|default_if_none:0 }}');
 
     // Credit management variables
     let currentCredits = null;
