@@ -252,7 +252,6 @@ async def _extract_from_url(url: str, api_token: str) -> Tuple[List[PriceItem], 
     try:
         async with AsyncWebCrawler(config=browser_config) as crawler:
             # Add timeout for the entire crawl operation
-            import asyncio
             result = await asyncio.wait_for(
                 crawler.arun(url=url, config=crawler_config),
                 timeout=35.0  # Total timeout for crawling
