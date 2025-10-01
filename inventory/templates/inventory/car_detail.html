@@ -285,20 +285,26 @@
                             <th class="small">Date</th>
                             <th class="small">Marketplace</th>
                             <th class="text-end small">Price</th>
+                            <th class="text-center small" style="width: 80px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="price-history-body">
                         {% if price_history %}
                             {% for mp in price_history %}
-                            <tr>
+                            <tr data-price-id="{{ mp.id }}">
                                 <td class="small">{{ mp.fetched_at|date:'Y-m-d H:i' }}</td>
                                 <td class="small">{{ mp.get_marketplace_display }}</td>
                                 <td class="text-end">₹{{ mp.price }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-danger delete-market-price" data-price-id="{{ mp.id }}" title="Delete this entry">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr data-placeholder="true">
-                                <td colspan="3" class="text-center text-muted small">No market history yet.</td>
+                                <td colspan="4" class="text-center text-muted small">No market history yet.</td>
                             </tr>
                         {% endif %}
                     </tbody>
@@ -848,6 +854,9 @@
 
                     data.quotes.forEach(quote => {
                         const tr = document.createElement('tr');
+                        if (quote.id) {
+                            tr.setAttribute('data-price-id', quote.id);
+                        }
                         const dateTd = document.createElement('td');
                         dateTd.className = 'small';
                         dateTd.textContent = formatDate(quote.fetched_at);
@@ -863,9 +872,21 @@
                         } else {
                             priceTd.textContent = 'N/A';
                         }
+                        // Add delete button cell
+                        const actionTd = document.createElement('td');
+                        actionTd.className = 'text-center';
+                        if (quote.id) {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn btn-sm btn-outline-danger delete-market-price';
+                            deleteBtn.setAttribute('data-price-id', quote.id);
+                            deleteBtn.setAttribute('title', 'Delete this entry');
+                            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                            actionTd.appendChild(deleteBtn);
+                        }
                         tr.appendChild(dateTd);
                         tr.appendChild(marketTd);
                         tr.appendChild(priceTd);
+                        tr.appendChild(actionTd);
                         historyBody.insertBefore(tr, historyBody.firstChild);
                     });
 
@@ -880,6 +901,137 @@
                 errorDiv.textContent = 'Error fetching market price: ' + error.message;
                 errorDiv.classList.remove('d-none');
             });
+    });
+    
+    // Function to recalculate and update the average price display
+    function updateAveragePriceDisplay() {
+        const historyBody = document.getElementById('price-history-body');
+        if (!historyBody) return;
+        
+        // Get all visible price rows (excluding placeholder)
+        const priceRows = Array.from(historyBody.querySelectorAll('tr[data-price-id]'));
+        
+        if (priceRows.length === 0) {
+            // No prices available
+            document.getElementById('latest-avg-price').textContent = 'Not available';
+            document.getElementById('latest-vs-purchase').textContent = 'N/A';
+            return;
+        }
+        
+        // Group rows by date to find the latest batch
+        const rowsByDate = {};
+        priceRows.forEach(row => {
+            const dateCell = row.querySelector('td.small');
+            if (!dateCell) return;
+            const dateText = dateCell.textContent.trim();
+            if (!rowsByDate[dateText]) {
+                rowsByDate[dateText] = [];
+            }
+            rowsByDate[dateText].push(row);
+        });
+        
+        // Get the latest date (first in the list since table is sorted newest first)
+        const latestDate = priceRows.length > 0 ? priceRows[0].querySelector('td.small')?.textContent.trim() : null;
+        
+        if (!latestDate || !rowsByDate[latestDate]) {
+            document.getElementById('latest-avg-price').textContent = 'Not available';
+            document.getElementById('latest-vs-purchase').textContent = 'N/A';
+            return;
+        }
+        
+        // Extract prices from the latest batch only (matching backend logic)
+        const latestBatchRows = rowsByDate[latestDate];
+        const prices = latestBatchRows.map(row => {
+            const priceCell = row.querySelector('td.text-end');
+            if (!priceCell) return null;
+            const priceText = priceCell.textContent.trim().replace('₹', '').replace(',', '');
+            const price = parseFloat(priceText);
+            return isNaN(price) ? null : price;
+        }).filter(p => p !== null && p > 0);
+        
+        if (prices.length === 0) {
+            document.getElementById('latest-avg-price').textContent = 'Not available';
+            document.getElementById('latest-vs-purchase').textContent = 'N/A';
+            return;
+        }
+        
+        // Calculate average from latest batch
+        const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+        
+        // Update average price display
+        document.getElementById('latest-avg-price').textContent = '₹' + avgPrice.toFixed(2);
+        
+        // Calculate vs purchase price if available
+        if (purchasePriceInrGlobal && purchasePriceInrGlobal > 0) {
+            const pctChange = ((avgPrice - purchasePriceInrGlobal) / purchasePriceInrGlobal) * 100;
+            const sign = pctChange >= 0 ? '+' : '';
+            document.getElementById('latest-vs-purchase').textContent = sign + pctChange.toFixed(2) + '%';
+        } else {
+            document.getElementById('latest-vs-purchase').textContent = 'N/A';
+        }
+    }
+    
+    // Handle delete market price
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-market-price')) {
+            const btn = e.target.closest('.delete-market-price');
+            const priceId = btn.getAttribute('data-price-id');
+            
+            if (!priceId || !confirm('Are you sure you want to delete this market price entry?')) {
+                return;
+            }
+            
+            // Disable button during deletion
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+            
+            fetch(`/api/market_price/${priceId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to delete');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Remove the row from the table
+                    const row = document.querySelector(`tr[data-price-id="${priceId}"]`);
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            // Check if table is empty and show placeholder
+                            const historyBody = document.getElementById('price-history-body');
+                            if (historyBody && historyBody.children.length === 0) {
+                                const placeholderRow = document.createElement('tr');
+                                placeholderRow.setAttribute('data-placeholder', 'true');
+                                placeholderRow.innerHTML = '<td colspan="4" class="text-center text-muted small">No market history yet.</td>';
+                                historyBody.appendChild(placeholderRow);
+                            }
+                            // Recalculate and update average price display
+                            updateAveragePriceDisplay();
+                        }, 300);
+                    }
+                } else {
+                    alert('Failed to delete market price entry');
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            })
+            .catch(error => {
+                alert('Error deleting market price: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            });
+        }
     });
     
     // Load credit status when page loads
