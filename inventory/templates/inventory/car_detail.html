@@ -273,6 +273,20 @@
             </div>
         </div>
 
+        <!-- Price Trend Chart -->
+        {% if has_price_history %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Price Trend Over Time</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-box" style="position: relative; height: 300px;">
+                    <canvas id="priceTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Price History -->
         <div class="card mb-4">
             <div class="card-header">
@@ -381,6 +395,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Helpers and global handlers
     const carIdGlobal = Number('{{ car.pk }}');
@@ -1034,9 +1049,135 @@
         }
     });
     
-    // Load credit status when page loads
+    // Price Trend Chart
     document.addEventListener('DOMContentLoaded', function() {
         loadCreditStatus();
+        
+        // Render price trend chart if data is available
+        const priceChartCanvas = document.getElementById('priceTrendChart');
+        if (priceChartCanvas) {
+            const ctx = priceChartCanvas.getContext('2d');
+            
+            let chartLabels = [];
+            let chartValues = [];
+            
+            try {
+                chartLabels = JSON.parse('{{ price_chart_labels_json|escapejs }}');
+                chartValues = JSON.parse('{{ price_chart_values_json|escapejs }}');
+            } catch (e) {
+                console.error('Error parsing chart data:', e);
+            }
+            
+            if (chartLabels.length > 0 && chartValues.length > 0) {
+                // Prepare datasets
+                const datasets = [{
+                    label: 'Average Market Price (₹)',
+                    data: chartValues,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }];
+                
+                // Add purchase price reference line if available
+                if (purchasePriceInrGlobal && purchasePriceInrGlobal > 0) {
+                    const purchaseLine = Array(chartLabels.length).fill(purchasePriceInrGlobal);
+                    datasets.push({
+                        label: 'Purchase Price (₹)',
+                        data: purchaseLine,
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'transparent',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false
+                    });
+                }
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: chartLabels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: '#0f172a',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Average: ₹' + context.parsed.y.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    color: '#0f172a',
+                                    callback: function(value) {
+                                        return '₹' + value.toFixed(0);
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Price (INR)',
+                                    color: '#0f172a',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#0f172a',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Fetch Date',
+                                    color: '#0f172a',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
     });
 </script>
 {% endblock %}

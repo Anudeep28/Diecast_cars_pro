@@ -330,6 +330,29 @@ def car_detail(request, pk):
         latest_avg_price = None
         pct_vs_purchase = None
     
+    # Prepare price trend chart data (group by fetched_at timestamp and calculate averages)
+    price_chart_labels = []
+    price_chart_values = []
+    try:
+        # Get distinct fetched_at timestamps (batches)
+        distinct_batches = MarketPrice.objects.filter(car=car).values('fetched_at').distinct().order_by('fetched_at')
+        
+        for batch in distinct_batches:
+            batch_time = batch['fetched_at']
+            # Calculate average for this batch
+            batch_avg = MarketPrice.objects.filter(car=car, fetched_at=batch_time).aggregate(avg=Avg('price'))['avg']
+            if batch_avg:
+                # Format date for display (e.g., "Jan 15, 2025")
+                formatted_date = batch_time.strftime('%b %d, %Y')
+                price_chart_labels.append(formatted_date)
+                price_chart_values.append(float(batch_avg))
+    except Exception:
+        pass
+    
+    # Convert to JSON for template
+    price_chart_labels_json = json.dumps(price_chart_labels)
+    price_chart_values_json = json.dumps(price_chart_values)
+    
     context = {
         'car': car,
         'feedback_form': feedback_form,
@@ -340,6 +363,9 @@ def car_detail(request, pk):
         'market_links': market_links,
         'latest_avg_price': latest_avg_price,
         'pct_vs_purchase': pct_vs_purchase,
+        'price_chart_labels_json': price_chart_labels_json,
+        'price_chart_values_json': price_chart_values_json,
+        'has_price_history': len(price_chart_labels) > 0,
     }
     return render(request, 'inventory/car_detail.html', context)
 
