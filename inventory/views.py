@@ -136,40 +136,70 @@ def dashboard(request):
     # Average price per car
     avg_price = all_cars.aggregate(avg=Avg('price'))['avg'] or 0
 
-    # Market value metrics
+    # Market value metrics - Calculate portfolio value using latest batch averages
+    # For cars without market data, use purchase price as fallback
     market_current_total = 0
     market_previous_total = 0
+    purchase_portfolio_value = 0
+    cars_with_market_data = 0
+    cars_without_market_data = 0
     rarity_alerts = []
     top_price_changes = []
     thirty_days_ago = timezone.now() - timedelta(days=30)
+    
     for car in all_cars:
+        # Add to purchase portfolio value
+        if car.price and float(car.price) > 0:
+            purchase_portfolio_value += float(car.price)
+        
         latest = MarketPrice.objects.filter(car=car).order_by('-fetched_at').first()
         if latest:
-            market_current_total += float(latest.price)
-            # Previous = closest before 30 days ago, else the second latest
-            prev = MarketPrice.objects.filter(car=car, fetched_at__lte=thirty_days_ago).order_by('-fetched_at').first()
-            if not prev:
-                second = list(MarketPrice.objects.filter(car=car).order_by('-fetched_at')[:2])
-                prev = second[1] if len(second) == 2 else None
-            if prev and float(prev.price) > 0:
-                market_previous_total += float(prev.price)
-                change_pct = ((float(latest.price) - float(prev.price)) / float(prev.price)) * 100.0
-
-            # Compute percent change vs purchase price using latest batch average
-            try:
-                if car.price and float(car.price) > 0:
-                    batch_qs = MarketPrice.objects.filter(car=car, fetched_at=latest.fetched_at)
-                    batch_avg = batch_qs.aggregate(avg=Avg('price'))['avg'] or latest.price
-                    pct_vs_purchase = ((float(batch_avg) - float(car.price)) / float(car.price)) * 100.0
-                    if pct_vs_purchase > 0:
-                        top_price_changes.append({
-                            'car': car,
-                            'change_pct': round(pct_vs_purchase, 1),
-                            'latest_price': batch_avg,
-                        })
-            except Exception:
-                # If any calculation fails for this car, skip it for the top list
-                pass
+            # Calculate average from latest batch (matching car_detail logic)
+            batch_qs = MarketPrice.objects.filter(car=car, fetched_at=latest.fetched_at)
+            batch_avg = batch_qs.aggregate(avg=Avg('price'))['avg']
+            
+            if batch_avg:
+                market_current_total += float(batch_avg)
+                cars_with_market_data += 1
+                
+                # Previous batch for 30-day comparison
+                prev = MarketPrice.objects.filter(car=car, fetched_at__lte=thirty_days_ago).order_by('-fetched_at').first()
+                if not prev:
+                    # Fallback to second latest batch
+                    all_batches = MarketPrice.objects.filter(car=car).values('fetched_at').distinct().order_by('-fetched_at')[:2]
+                    if len(all_batches) >= 2:
+                        prev_time = all_batches[1]['fetched_at']
+                        prev_batch_avg = MarketPrice.objects.filter(car=car, fetched_at=prev_time).aggregate(avg=Avg('price'))['avg']
+                        if prev_batch_avg and float(prev_batch_avg) > 0:
+                            market_previous_total += float(prev_batch_avg)
+                elif prev:
+                    prev_batch_avg = MarketPrice.objects.filter(car=car, fetched_at=prev.fetched_at).aggregate(avg=Avg('price'))['avg']
+                    if prev_batch_avg and float(prev_batch_avg) > 0:
+                        market_previous_total += float(prev_batch_avg)
+                
+                # Compute percent change vs purchase price using latest batch average
+                try:
+                    if car.price and float(car.price) > 0:
+                        pct_vs_purchase = ((float(batch_avg) - float(car.price)) / float(car.price)) * 100.0
+                        if pct_vs_purchase > 0:
+                            top_price_changes.append({
+                                'car': car,
+                                'change_pct': round(pct_vs_purchase, 1),
+                                'latest_price': batch_avg,
+                            })
+                except Exception:
+                    pass
+        else:
+            # No market data available - use purchase price as fallback for portfolio valuation
+            cars_without_market_data += 1
+            if car.price and float(car.price) > 0:
+                market_current_total += float(car.price)
+    
+    # Calculate portfolio gain/loss
+    portfolio_gain_loss = market_current_total - purchase_portfolio_value
+    portfolio_gain_loss_pct = None
+    if purchase_portfolio_value > 0:
+        portfolio_gain_loss_pct = round((portfolio_gain_loss / purchase_portfolio_value) * 100.0, 2)
     
     # Top manufacturers by count
     manufacturer_counts = all_cars.values('manufacturer').annotate(count=Count('id')).order_by('-count')[:5]
@@ -228,10 +258,15 @@ def dashboard(request):
         'cars_this_month': cars_this_month,
         'total_spent': total_spent,
         'avg_price': avg_price,
-        # Market
+        # Market Portfolio
         'market_current_total': market_current_total,
         'market_previous_total': market_previous_total,
         'market_change_pct': market_change_pct,
+        'purchase_portfolio_value': purchase_portfolio_value,
+        'portfolio_gain_loss': portfolio_gain_loss,
+        'portfolio_gain_loss_pct': portfolio_gain_loss_pct,
+        'cars_with_market_data': cars_with_market_data,
+        'cars_without_market_data': cars_without_market_data,
         'rarity_alerts': rarity_alerts,
         'top_price_changes': top_price_changes,
         'top_manufacturers': manufacturer_counts,

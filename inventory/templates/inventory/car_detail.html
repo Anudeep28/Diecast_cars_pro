@@ -274,8 +274,7 @@
         </div>
 
         <!-- Price Trend Chart -->
-        {% if has_price_history %}
-        <div class="card mb-4">
+        <div class="card mb-4" id="priceTrendChartCard" style="{% if not has_price_history %}display: none;{% endif %}">
             <div class="card-header">
                 <h5>Price Trend Over Time</h5>
             </div>
@@ -285,7 +284,6 @@
                 </div>
             </div>
         </div>
-        {% endif %}
 
         <!-- Price History -->
         <div class="card mb-4">
@@ -909,6 +907,9 @@
                     while (historyBody.children.length > 10) {
                         historyBody.removeChild(historyBody.lastChild);
                     }
+                    
+                    // Update the price trend chart with new data
+                    updatePriceTrendChart();
                 }
             })
             .catch(error => {
@@ -1033,6 +1034,8 @@
                             }
                             // Recalculate and update average price display
                             updateAveragePriceDisplay();
+                            // Update the price trend chart
+                            updatePriceTrendChart();
                         }, 300);
                     }
                 } else {
@@ -1049,135 +1052,213 @@
         }
     });
     
-    // Price Trend Chart
-    document.addEventListener('DOMContentLoaded', function() {
-        loadCreditStatus();
+    // Price Trend Chart - Global variable to hold chart instance
+    let priceTrendChartInstance = null;
+    
+    // Function to build chart data from current table state
+    function buildChartDataFromTable() {
+        const historyBody = document.getElementById('price-history-body');
+        if (!historyBody) return null;
         
-        // Render price trend chart if data is available
-        const priceChartCanvas = document.getElementById('priceTrendChart');
-        if (priceChartCanvas) {
-            const ctx = priceChartCanvas.getContext('2d');
+        const priceRows = Array.from(historyBody.querySelectorAll('tr[data-price-id]'));
+        if (priceRows.length === 0) return null;
+        
+        // Group prices by date (fetched_at) and calculate averages
+        const dateGroups = {};
+        
+        priceRows.forEach(row => {
+            const dateCell = row.querySelector('td.small');
+            const priceCell = row.querySelector('td.text-end');
             
-            let chartLabels = [];
-            let chartValues = [];
+            if (!dateCell || !priceCell) return;
             
-            try {
-                chartLabels = JSON.parse('{{ price_chart_labels_json|escapejs }}');
-                chartValues = JSON.parse('{{ price_chart_values_json|escapejs }}');
-            } catch (e) {
-                console.error('Error parsing chart data:', e);
-            }
+            const dateText = dateCell.textContent.trim();
+            const priceText = priceCell.textContent.trim().replace('₹', '').replace(',', '');
+            const price = parseFloat(priceText);
             
-            if (chartLabels.length > 0 && chartValues.length > 0) {
-                // Prepare datasets
-                const datasets = [{
-                    label: 'Average Market Price (₹)',
-                    data: chartValues,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgb(59, 130, 246)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
-                }];
-                
-                // Add purchase price reference line if available
-                if (purchasePriceInrGlobal && purchasePriceInrGlobal > 0) {
-                    const purchaseLine = Array(chartLabels.length).fill(purchasePriceInrGlobal);
-                    datasets.push({
-                        label: 'Purchase Price (₹)',
-                        data: purchaseLine,
-                        borderColor: 'rgb(239, 68, 68)',
-                        backgroundColor: 'transparent',
-                        borderDash: [5, 5],
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 0,
-                        fill: false
-                    });
+            if (!isNaN(price) && price > 0) {
+                if (!dateGroups[dateText]) {
+                    dateGroups[dateText] = [];
                 }
-                
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartLabels,
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    color: '#0f172a',
-                                    font: {
-                                        size: 12,
-                                        weight: 'bold'
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                titleColor: '#fff',
-                                bodyColor: '#fff',
-                                padding: 12,
-                                displayColors: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Average: ₹' + context.parsed.y.toFixed(2);
-                                    }
-                                }
+                dateGroups[dateText].push(price);
+            }
+        });
+        
+        // Sort dates and calculate averages
+        const sortedDates = Object.keys(dateGroups).sort((a, b) => {
+            // Parse dates in format "YYYY-MM-DD HH:MM"
+            return new Date(a) - new Date(b);
+        });
+        
+        const chartLabels = [];
+        const chartValues = [];
+        
+        sortedDates.forEach(dateText => {
+            const prices = dateGroups[dateText];
+            const avg = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+            
+            // Format date for display (e.g., "Oct 02, 2025")
+            try {
+                const date = new Date(dateText);
+                const formatted = date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: '2-digit', 
+                    year: 'numeric' 
+                });
+                chartLabels.push(formatted);
+            } catch (e) {
+                chartLabels.push(dateText);
+            }
+            chartValues.push(avg);
+        });
+        
+        return { labels: chartLabels, values: chartValues };
+    }
+    
+    // Function to create/update the price trend chart
+    function updatePriceTrendChart() {
+        const priceChartCanvas = document.getElementById('priceTrendChart');
+        if (!priceChartCanvas) return;
+        
+        const chartData = buildChartDataFromTable();
+        
+        // Destroy existing chart if it exists
+        if (priceTrendChartInstance) {
+            priceTrendChartInstance.destroy();
+            priceTrendChartInstance = null;
+        }
+        
+        // If no data, hide the chart card
+        const chartCard = priceChartCanvas.closest('.card');
+        if (!chartData || chartData.labels.length === 0) {
+            if (chartCard) {
+                chartCard.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Show the chart card if hidden
+        if (chartCard) {
+            chartCard.style.display = '';
+        }
+        
+        const ctx = priceChartCanvas.getContext('2d');
+        const chartLabels = chartData.labels;
+        const chartValues = chartData.values;
+        
+        // Prepare datasets
+        const datasets = [{
+            label: 'Average Market Price (₹)',
+            data: chartValues,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+        }];
+        
+        // Add purchase price reference line if available
+        if (purchasePriceInrGlobal && purchasePriceInrGlobal > 0) {
+            const purchaseLine = Array(chartLabels.length).fill(purchasePriceInrGlobal);
+            datasets.push({
+                label: 'Purchase Price (₹)',
+                data: purchaseLine,
+                borderColor: 'rgb(239, 68, 68)',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                fill: false
+            });
+        }
+        
+        priceTrendChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#0f172a',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
                             }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: false,
-                                ticks: {
-                                    color: '#0f172a',
-                                    callback: function(value) {
-                                        return '₹' + value.toFixed(0);
-                                    }
-                                },
-                                grid: {
-                                    color: 'rgba(0, 0, 0, 0.05)'
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Price (INR)',
-                                    color: '#0f172a',
-                                    font: {
-                                        weight: 'bold'
-                                    }
-                                }
-                            },
-                            x: {
-                                ticks: {
-                                    color: '#0f172a',
-                                    maxRotation: 45,
-                                    minRotation: 45
-                                },
-                                grid: {
-                                    display: false
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Fetch Date',
-                                    color: '#0f172a',
-                                    font: {
-                                        weight: 'bold'
-                                    }
-                                }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Average: ₹' + context.parsed.y.toFixed(2);
                             }
                         }
                     }
-                });
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            color: '#0f172a',
+                            callback: function(value) {
+                                return '₹' + value.toFixed(0);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Price (INR)',
+                            color: '#0f172a',
+                            font: {
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#0f172a',
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        grid: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Fetch Date',
+                            color: '#0f172a',
+                            font: {
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                }
             }
-        }
+        });
+    }
+    
+    // Initialize chart on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCreditStatus();
+        updatePriceTrendChart();
     });
 </script>
 {% endblock %}

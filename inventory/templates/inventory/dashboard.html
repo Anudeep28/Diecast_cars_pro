@@ -91,30 +91,72 @@
         <!-- Market Portfolio -->
         <div class="card mb-3">
             <div class="card-header bg-success text-white py-2">
-                <h6 class="mb-0">Market Portfolio</h6>
+                <h6 class="mb-0">Market Portfolio Value</h6>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-6 mb-3">
-                        <h6 class="text-muted mb-1">Market Value</h6>
+                <div class="row mb-3">
+                    <div class="col-12 mb-2">
+                        <h6 class="text-muted mb-1">Total Portfolio Value</h6>
                         <h3 class="text-success mb-0">₹{{ market_current_total|floatformat:2 }}</h3>
+                        <small class="text-muted">
+                            {% if cars_with_market_data > 0 and cars_without_market_data > 0 %}
+                                {{ cars_with_market_data }} with market data + {{ cars_without_market_data }} using purchase price
+                            {% elif cars_with_market_data > 0 %}
+                                All {{ cars_with_market_data }} car{{ cars_with_market_data|pluralize }} with market data
+                            {% elif cars_without_market_data > 0 %}
+                                All {{ cars_without_market_data }} car{{ cars_without_market_data|pluralize }} using purchase price
+                            {% endif %}
+                        </small>
                     </div>
-                    <div class="col-6 mb-3">
-                        <h6 class="text-muted mb-1">Change (30d)</h6>
-                        {% if market_change_pct is not None %}
-                            <h5 class="mb-0 {% if market_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                {% if market_change_pct >= 0 %}
-                                    <i class="bi bi-arrow-up-right me-1"></i>
-                                {% else %}
-                                    <i class="bi bi-arrow-down-right me-1"></i>
-                                {% endif %}
-                                {{ market_change_pct }}%
-                            </h5>
-                        {% else %}
-                            <h6 class="text-muted mb-0">N/A</h6>
-                        {% endif %}
+                    <div class="col-12 mb-2">
+                        <h6 class="text-muted mb-1">Original Purchase Value</h6>
+                        <h4 class="text-primary mb-0">₹{{ purchase_portfolio_value|floatformat:2 }}</h4>
                     </div>
                 </div>
+                
+                {% if portfolio_gain_loss_pct is not None %}
+                <div class="alert {% if portfolio_gain_loss >= 0 %}alert-success{% else %}alert-danger{% endif %} py-2 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Net Gain/Loss:</strong>
+                            <span class="ms-2">
+                                {% if portfolio_gain_loss >= 0 %}
+                                    <i class="bi bi-arrow-up-right me-1"></i>+₹{{ portfolio_gain_loss|floatformat:2 }}
+                                {% else %}
+                                    <i class="bi bi-arrow-down-right me-1"></i>₹{{ portfolio_gain_loss|floatformat:2 }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="badge {% if portfolio_gain_loss >= 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                                {% if portfolio_gain_loss >= 0 %}+{% endif %}{{ portfolio_gain_loss_pct }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if cars_without_market_data > 0 %}
+                <div class="alert alert-info py-2 mb-3">
+                    <small><i class="bi bi-info-circle me-1"></i>{{ cars_without_market_data }} car{{ cars_without_market_data|pluralize }} valued at purchase price (fetch market data for updated valuation)</small>
+                </div>
+                {% endif %}
+                
+                {% if market_change_pct is not None %}
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-1">Market Change (30d)</h6>
+                        <h5 class="mb-0 {% if market_change_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if market_change_pct >= 0 %}
+                                <i class="bi bi-arrow-up-right me-1"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-right me-1"></i>
+                            {% endif %}
+                            {{ market_change_pct }}%
+                        </h5>
+                    </div>
+                </div>
+                {% endif %}
                 {% if top_price_changes %}
                 <hr>
                 <h6 class="text-muted">Top Price Changes vs Purchase</h6>
