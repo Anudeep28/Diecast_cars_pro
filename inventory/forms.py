@@ -117,6 +117,20 @@ class UserRegistrationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2', 'agree_subscription']
+    
+    def clean_email(self):
+        """Validate that the email is unique"""
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("An account with this email address already exists.")
+        return email
+    
+    def clean_username(self):
+        """Validate that the username is unique (with custom message)"""
+        username = self.cleaned_data.get('username')
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError("This username is already taken. Please choose a different one.")
+        return username
         
     def save(self, commit=True):
         user = super(UserRegistrationForm, self).save(commit=False)
