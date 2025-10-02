@@ -97,9 +97,23 @@
             },
             "theme": {
                 "color": "#3399cc"
+            },
+            "modal": {
+                "ondismiss": function() {
+                    // User closed the payment modal
+                    alert('Payment cancelled. Please try again when ready.');
+                    console.log('Payment modal closed by user');
+                }
             }
         };
         var rzp1 = new Razorpay(options);
+        rzp1.on('payment.failed', function (response) {
+            // Payment failed
+            console.error('Payment failed:', response.error);
+            alert('Payment failed: ' + response.error.description);
+            // Optionally redirect to failure page
+            window.location.href = "{% url 'payment_failed' %}";
+        });
         rzp1.open();
     };
 </script>

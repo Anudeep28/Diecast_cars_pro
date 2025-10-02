@@ -215,10 +215,10 @@ LOGOUT_REDIRECT_URL = 'landing_page'
 # Message settings
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
-# Razorpay settings
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET')
-RAZORPAY_SUBSCRIPTION_PLAN_ID = 'plan_99rs_monthly'
+# Razorpay settings - LIVE MODE
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID_LIVE')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET_LIVE')
+# Note: Using one-time payments, not subscription plans
 SUBSCRIPTION_AMOUNT = 9900  # Amount in paise (99 INR)
 
 # Market provider keys (set in .env)

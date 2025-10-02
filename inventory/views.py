@@ -510,23 +510,46 @@ def subscription_callback(request):
             user = User.objects.get(id=user_id)
             razorpay_client = RazorpayClient()
             
-            # For test mode, we'll accept all payments without strict verification
-            payment_verified = True
-            
+            # Verify payment signature (REQUIRED for LIVE mode security)
             try:
-                # Try to verify the payment signature
                 signature_verified = razorpay_client.verify_payment_signature(razorpay_payment_id, razorpay_order_id, razorpay_signature)
                 if not signature_verified:
-                    print("Payment signature verification failed, but continuing for test mode")
+                    print("CRITICAL: Payment signature verification failed!")
+                    messages.error(request, 'Payment verification failed. Please contact support if amount was deducted.')
+                    return redirect('payment_failed')
                 
-                # Get payment details to confirm amount
+                print(f"✓ Payment signature verified successfully for payment_id: {razorpay_payment_id}")
+                
+                # Get payment details to confirm status and amount
                 payment_details = razorpay_client.fetch_payment_details(razorpay_payment_id)
-                if not payment_details or payment_details.get('status') != 'captured':
-                    print(f"Payment status check failed: {payment_details.get('status') if payment_details else 'No details'}, but continuing for test mode")
-            except Exception as e:
-                print(f"Error during payment verification: {str(e)}, but continuing for test mode")
+                if not payment_details:
+                    print("ERROR: Could not fetch payment details from Razorpay")
+                    messages.error(request, 'Could not verify payment status. Please contact support.')
+                    return redirect('payment_failed')
                 
-            # In test mode, we proceed with subscription creation regardless of verification
+                payment_status = payment_details.get('status')
+                payment_amount = payment_details.get('amount', 0)
+                
+                print(f"Payment details - Status: {payment_status}, Amount: {payment_amount}")
+                
+                # Verify payment is captured and amount is correct
+                if payment_status != 'captured':
+                    print(f"ERROR: Payment not captured. Status: {payment_status}")
+                    messages.error(request, f'Payment status: {payment_status}. Please try again or contact support.')
+                    return redirect('payment_failed')
+                
+                if payment_amount != settings.SUBSCRIPTION_AMOUNT:
+                    print(f"WARNING: Amount mismatch! Expected: {settings.SUBSCRIPTION_AMOUNT}, Received: {payment_amount}")
+                    # Continue anyway as payment is captured, but log the discrepancy
+                
+                print("✓ Payment fully verified - proceeding with subscription creation")
+                
+            except Exception as e:
+                print(f"CRITICAL ERROR during payment verification: {str(e)}")
+                messages.error(request, 'Payment verification error. Please contact support if amount was deducted.')
+                return redirect('payment_failed')
+                
+            # Payment verified successfully, proceed with subscription creation
             # Calculate subscription end date (1 month from now)
             end_date = timezone.now() + timedelta(days=30)
             
