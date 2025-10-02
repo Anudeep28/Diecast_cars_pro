@@ -30,7 +30,7 @@ sys.modules['inventory._primary_views'] = _primary_views
 # Explicitly re-export the main view callables so that
 # `from inventory.views import dashboard` works as expected.
 __all__ = [
-    'dashboard', 'car_create', 'car_detail', 'car_update',
+    'landing_page', 'dashboard', 'car_create', 'car_detail', 'car_update',
     'car_delete', 'update_status', 'register', 'custom_logout',
     'subscription_callback', 'payment_success', 'payment_failed',
     'subscription_renew', 'subscription_details', 'profile'

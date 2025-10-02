@@ -9,6 +9,7 @@ class SubscriptionCheckMiddleware:
         self.get_response = get_response
         # Paths that don't require subscription check
         self.excluded_paths = [
+            r'^/$',  # Landing page
             r'^/login/',
             r'^/logout/',
             r'^/register/',

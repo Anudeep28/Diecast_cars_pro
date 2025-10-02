@@ -8,8 +8,11 @@ from . import views
 from .fix_subscription import fix_subscription_view
 
 urlpatterns = [
+    # Landing page
+    path('', views.landing_page, name='landing_page'),
+    
     # Dashboard and CRUD operations
-    path('', views.dashboard, name='dashboard'),
+    path('dashboard/', views.dashboard, name='dashboard'),
     path('car/new/', views.car_create, name='car_create'),
     path('car/<int:pk>/', views.car_detail, name='car_detail'),
     path('car/<int:pk>/update/', views.car_update, name='car_update'),

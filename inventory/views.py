@@ -15,6 +15,18 @@ from .models import DiecastCar, Subscription, MarketPrice
 from .forms import DiecastCarForm, FeedbackForm, UserRegistrationForm, SubscriptionForm
 from .razorpay_client import RazorpayClient
 
+# Landing page view
+def landing_page(request):
+    """Landing page for non-authenticated users showcasing app features"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    context = {
+        'subscription_price': settings.SUBSCRIPTION_AMOUNT / 100,  # Convert from paise to rupees
+        'title': 'Welcome to DiecastCollector Pro'
+    }
+    return render(request, 'inventory/landing.html', context)
+
 # Dashboard view
 @login_required
 def dashboard(request):
