@@ -276,11 +276,57 @@ LOGGING = {
     },
 }
 
-# Email settings (configure these with your email provider)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
-DEFAULT_FROM_EMAIL = 'noreply@diecastcollector.com'
-EMAIL_HOST = 'smtp.example.com'  # Update with your SMTP server
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@example.com'  # Update with your email
-EMAIL_HOST_PASSWORD = 'your-password'  # Update with your password
+# Email settings - Support Gmail, Outlook, and Mailgun
+# Priority: Gmail (if configured) → Outlook (if configured) → Mailgun (if configured) → Console backend (fallback)
+
+# Check for Gmail SMTP settings
+GMAIL_USER = os.environ.get('GMAIL_USER', '')
+GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD', '')
+
+# Check for Outlook/Microsoft 365 SMTP settings
+OUTLOOK_USER = os.environ.get('EMAIL_HOST_USER', '')
+OUTLOOK_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+
+# Check for Mailgun SMTP settings
+MAILGUN_USERNAME = os.environ.get('MAILGUN_SMTP_USERNAME', '')
+MAILGUN_PASSWORD = os.environ.get('MAILGUN_SMTP_PASSWORD', '')
+
+if GMAIL_USER and GMAIL_APP_PASSWORD:
+    # Gmail SMTP settings (requires App Password)
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = GMAIL_USER
+    EMAIL_HOST_PASSWORD = GMAIL_APP_PASSWORD
+    DEFAULT_FROM_EMAIL = GMAIL_USER
+    if os.environ.get('RUN_MAIN') != 'true':
+        print(f"✓ Gmail email backend configured ({EMAIL_HOST_USER})")
+elif OUTLOOK_USER and OUTLOOK_PASSWORD:
+    # Outlook/Microsoft 365 SMTP settings
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-mail.outlook.com')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+    EMAIL_HOST_USER = OUTLOOK_USER
+    EMAIL_HOST_PASSWORD = OUTLOOK_PASSWORD
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', OUTLOOK_USER)
+    if os.environ.get('RUN_MAIN') != 'true':
+        print(f"✓ Outlook email backend configured ({EMAIL_HOST_USER})")
+elif MAILGUN_USERNAME and MAILGUN_PASSWORD:
+    # Mailgun SMTP settings
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.mailgun.org'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = MAILGUN_USERNAME
+    EMAIL_HOST_PASSWORD = MAILGUN_PASSWORD
+    DEFAULT_FROM_EMAIL = os.environ.get('MAILGUN_SENDER_EMAIL', 'noreply@diecastcollector.com')
+    if os.environ.get('RUN_MAIN') != 'true':
+        print("✓ Mailgun email backend configured")
+else:
+    # Fallback to console backend for development
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@diecastcollector.com'
+    if os.environ.get('RUN_MAIN') != 'true':
+        print("Using console email backend (emails will print to terminal)")
