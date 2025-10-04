@@ -14,7 +14,16 @@
         <p>Please try again or contact support if you continue to have issues.</p>
         
         <div class="mt-4">
-            <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Try Again</a>
+            {% if can_retry_payment and user_id %}
+                <a href="{% url 'proceed_to_payment' user_id=user_id %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-redo"></i> Retry Payment
+                </a>
+                <p class="mt-3 text-muted">
+                    <small>Your email ({{ user_email }}) is already verified. You can proceed directly to payment.</small>
+                </p>
+            {% else %}
+                <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Start Over</a>
+            {% endif %}
             <a href="mailto:support@diecastcollector.com" class="btn btn-outline-primary btn-lg ml-2">Contact Support</a>
         </div>
     </div>

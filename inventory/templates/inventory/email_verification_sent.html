@@ -1,0 +1,54 @@
+{% extends 'inventory/base.html' %}
+
+{% block title %}Email Verification Sent{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm mt-5">
+            <div class="card-header bg-success text-white">
+                <h2><i class="bi bi-envelope-check"></i> Check Your Email</h2>
+            </div>
+            <div class="card-body">
+                <div class="text-center py-4">
+                    <i class="bi bi-envelope-check-fill text-success" style="font-size: 5rem;"></i>
+                </div>
+                
+                <h4 class="text-center mb-4">Registration Almost Complete!</h4>
+                
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-info-circle"></i> What's Next?</h5>
+                    <ol class="mb-0">
+                        <li>Check your email inbox for a verification message from DiecastCollector Pro</li>
+                        <li>Click the verification link in the email (valid for 24 hours)</li>
+                        <li>Complete your payment to activate your account</li>
+                    </ol>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <strong><i class="bi bi-exclamation-triangle"></i> Important:</strong>
+                    <ul class="mb-0">
+                        <li>The verification link expires in <strong>24 hours</strong></li>
+                        <li>Check your spam/junk folder if you don't see the email</li>
+                        <li>Make sure to verify before the link expires</li>
+                    </ul>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <p class="text-muted">
+                        <i class="bi bi-clock"></i> Didn't receive the email? 
+                        <br>
+                        <small>Please wait a few minutes and check your spam folder. If you still don't receive it, you may need to register again.</small>
+                    </p>
+                </div>
+                
+                <div class="d-grid gap-2 mt-4">
+                    <a href="{% url 'login' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-box-arrow-in-right"></i> Go to Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

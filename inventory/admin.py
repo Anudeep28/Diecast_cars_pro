@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DiecastCar, CarMarketLink, MarketPrice, MarketFetchCredit
+from .models import DiecastCar, CarMarketLink, MarketPrice, MarketFetchCredit, Subscription, EmailVerificationToken
 
 @admin.register(DiecastCar)
 class DiecastCarAdmin(admin.ModelAdmin):
@@ -117,5 +117,48 @@ class MarketFetchCreditAdmin(admin.ModelAdmin):
         }),
         ('Timestamps', {
             'fields': ('next_reset_time', 'created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'is_active', 'start_date', 'end_date', 'days_remaining', 'auto_renew')
+    list_filter = ('is_active', 'auto_renew')
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'is_valid', 'days_remaining', 'expiring_soon')
+    
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Subscription Details', {
+            'fields': ('razorpay_payment_id', 'razorpay_subscription_id', 'start_date', 'end_date', 'is_active', 'auto_renew')
+        }),
+        ('Status', {
+            'fields': ('is_valid', 'days_remaining', 'expiring_soon')
+        }),
+        ('Timestamps', {
+            'fields': ('id', 'created_at', 'updated_at')
+        }),
+    )
+
+
+@admin.register(EmailVerificationToken)
+class EmailVerificationTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email_verified', 'created_at', 'expires_at', 'is_expired')
+    list_filter = ('email_verified', 'created_at')
+    search_fields = ('user__username', 'user__email', 'token')
+    readonly_fields = ('created_at', 'is_expired', 'is_valid')
+    
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Verification', {
+            'fields': ('token', 'email_verified', 'expires_at', 'is_expired', 'is_valid')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at',)
         }),
     )

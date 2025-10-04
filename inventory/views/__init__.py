@@ -33,7 +33,9 @@ __all__ = [
     'landing_page', 'dashboard', 'car_create', 'car_detail', 'car_update',
     'car_delete', 'update_status', 'register', 'custom_logout',
     'subscription_callback', 'payment_success', 'payment_failed',
-    'subscription_renew', 'subscription_details', 'profile'
+    'subscription_renew', 'subscription_details', 'profile',
+    'email_verification_sent', 'verify_email', 'proceed_to_payment',
+    'storage_debug', 'check_registration_status'
 ]
 
 globals().update({name: getattr(_primary_views, name) for name in __all__})

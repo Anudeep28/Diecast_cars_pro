@@ -60,6 +60,10 @@
             <div class="card-footer">
                 <div class="text-center">
                     Don't have an account? <a href="{% url 'register' %}">Register</a>
+                    <br>
+                    <small class="text-muted">
+                        Incomplete registration? <a href="{% url 'check_registration_status' %}">Check status</a>
+                    </small>
                 </div>
             </div>
         </div>

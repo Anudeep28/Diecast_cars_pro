@@ -24,6 +24,12 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='inventory/login.html'), name='login'),
     path('logout/', views.custom_logout, name='logout'),
     
+    # Email verification URLs
+    path('email-verification-sent/', views.email_verification_sent, name='email_verification_sent'),
+    path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
+    path('proceed-to-payment/<int:user_id>/', views.proceed_to_payment, name='proceed_to_payment'),
+    path('check-registration/', views.check_registration_status, name='check_registration_status'),
+    
     # Subscription and payment URLs
     path('subscription/callback/', views.subscription_callback, name='subscription_callback'),
     path('subscription/success/', views.payment_success, name='payment_success'),

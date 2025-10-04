@@ -9,9 +9,12 @@ from django.conf import settings
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from datetime import timedelta, datetime
 import json
-from .models import DiecastCar, Subscription, MarketPrice
+from .models import DiecastCar, Subscription, MarketPrice, EmailVerificationToken
 from .forms import DiecastCarForm, FeedbackForm, UserRegistrationForm, SubscriptionForm
 from .razorpay_client import RazorpayClient
 
@@ -432,40 +435,65 @@ def update_status(request, pk):
 
 # User registration view
 def register(request):
+    # Handle case where user with verified email but no payment tries to register again
+    if request.method == 'GET':
+        email = request.GET.get('email')
+        if email:
+            # Check if this email belongs to a user with verified email but no subscription
+            try:
+                user = User.objects.get(email=email, is_active=False)
+                try:
+                    verification = user.email_verification
+                    if verification.email_verified:
+                        # User has verified email but didn't complete payment
+                        messages.info(request, f'Your email is already verified. Redirecting to payment...')
+                        return redirect('proceed_to_payment', user_id=user.id)
+                except EmailVerificationToken.DoesNotExist:
+                    pass
+            except User.DoesNotExist:
+                pass
+    
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            user.is_active = False  # Set user as inactive until payment is confirmed
+            user.is_active = False  # Set user as inactive until email is verified
             user.save()
             username = form.cleaned_data.get('username')
-            # Create Razorpay order for subscription payment
-            razorpay_client = RazorpayClient()
-            notes = {
-                'username': username,
-                'user_id': str(user.id)
-            }
-            order = razorpay_client.create_subscription_order(user.email, notes)
             
-            if order:
-                # Store the registration data in session for later use
-                request.session['razorpay_order_id'] = order['id']
-                request.session['user_id'] = user.id
+            # Create email verification token
+            verification_token = EmailVerificationToken.objects.create(user=user)
+            
+            # Build verification URL
+            verification_url = request.build_absolute_uri(
+                reverse('verify_email', kwargs={'token': verification_token.token})
+            )
+            
+            # Send verification email
+            try:
+                subject = 'Verify Your Email - DiecastCollector Pro'
+                html_message = render_to_string('inventory/email_verification_email.html', {
+                    'user': user,
+                    'verification_url': verification_url,
+                    'expires_hours': 24
+                })
+                plain_message = strip_tags(html_message)
                 
-                context = {
-                    'order_id': order['id'],
-                    'razorpay_key_id': settings.RAZORPAY_KEY_ID,
-                    'amount': settings.SUBSCRIPTION_AMOUNT / 100,  # Convert to rupees for display
-                    'currency': 'INR',
-                    'user_email': user.email,
-                    'user_name': f"{user.first_name} {user.last_name}".strip() or username,
-                    'description': 'Monthly subscription - DiecastCollector Pro',
-                    'callback_url': request.build_absolute_uri(reverse('subscription_callback')),
-                }
-                return render(request, 'inventory/payment.html', context)
-            else:
-                messages.error(request, 'Could not create payment order. Please try again.')
-                # Delete the inactive user if payment order creation fails
+                send_mail(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                
+                messages.success(request, f'Registration successful! Please check your email ({user.email}) to verify your account.')
+                return redirect('email_verification_sent')
+            except Exception as e:
+                # If email fails, delete the user and show error
+                messages.error(request, f'Failed to send verification email. Please try again. Error: {str(e)}')
+                verification_token.delete()
                 user.delete()
                 return redirect('register')
     else:
@@ -599,8 +627,30 @@ def payment_success(request):
 
 # Payment failed page
 def payment_failed(request):
+    # Check if user has verified email but no active subscription
+    user_id = request.session.get('user_id')
+    can_retry_payment = False
+    user_email = None
+    
+    if user_id:
+        try:
+            user = User.objects.get(id=user_id)
+            # Check if email is verified
+            try:
+                verification = user.email_verification
+                if verification.email_verified:
+                    can_retry_payment = True
+                    user_email = user.email
+            except EmailVerificationToken.DoesNotExist:
+                pass
+        except User.DoesNotExist:
+            pass
+    
     return render(request, 'inventory/payment_failed.html', {
-        'title': 'Payment Failed - DiecastCollector Pro'
+        'title': 'Payment Failed - DiecastCollector Pro',
+        'can_retry_payment': can_retry_payment,
+        'user_id': user_id,
+        'user_email': user_email
     })
 
 
@@ -720,6 +770,100 @@ def profile(request):
     return render(request, 'inventory/profile.html', context)
 
 
+# Email verification sent page
+def email_verification_sent(request):
+    """Display page informing user to check their email for verification link"""
+    return render(request, 'inventory/email_verification_sent.html', {
+        'title': 'Verify Your Email - DiecastCollector Pro'
+    })
+
+
+# Email verification handler
+def verify_email(request, token):
+    """Handle email verification link clicked by user"""
+    try:
+        verification = EmailVerificationToken.objects.get(token=token)
+        
+        # Check if token is valid
+        if not verification.is_valid:
+            if verification.email_verified:
+                messages.info(request, 'Your email has already been verified. You can proceed with payment.')
+                # Redirect to payment page if already verified
+                return redirect('proceed_to_payment', user_id=verification.user.id)
+            else:
+                messages.error(request, 'This verification link has expired. Please register again.')
+                # Delete expired user and token
+                user = verification.user
+                verification.delete()
+                user.delete()
+                return redirect('register')
+        
+        # Mark email as verified
+        verification.email_verified = True
+        verification.save()
+        
+        messages.success(request, 'Email verified successfully! Please proceed with payment to activate your account.')
+        
+        # Store user_id in session for payment
+        request.session['user_id'] = verification.user.id
+        
+        # Redirect to payment page
+        return redirect('proceed_to_payment', user_id=verification.user.id)
+        
+    except EmailVerificationToken.DoesNotExist:
+        messages.error(request, 'Invalid verification link. Please register again.')
+        return redirect('register')
+
+
+# Proceed to payment after email verification
+def proceed_to_payment(request, user_id):
+    """Show payment page after email verification"""
+    try:
+        user = User.objects.get(id=user_id)
+        
+        # Check if email is verified
+        try:
+            verification = user.email_verification
+            if not verification.email_verified:
+                messages.error(request, 'Please verify your email first.')
+                return redirect('register')
+        except EmailVerificationToken.DoesNotExist:
+            messages.error(request, 'Verification token not found. Please register again.')
+            return redirect('register')
+        
+        # Create Razorpay order for subscription payment
+        razorpay_client = RazorpayClient()
+        notes = {
+            'username': user.username,
+            'user_id': str(user.id)
+        }
+        order = razorpay_client.create_subscription_order(user.email, notes)
+        
+        if order:
+            # Store the order ID in session for callback verification
+            request.session['razorpay_order_id'] = order['id']
+            request.session['user_id'] = user.id
+            
+            context = {
+                'order_id': order['id'],
+                'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+                'amount': settings.SUBSCRIPTION_AMOUNT / 100,  # Convert to rupees for display
+                'currency': 'INR',
+                'user_email': user.email,
+                'user_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'description': 'Monthly subscription - DiecastCollector Pro',
+                'callback_url': request.build_absolute_uri(reverse('subscription_callback')),
+            }
+            return render(request, 'inventory/payment.html', context)
+        else:
+            messages.error(request, 'Could not create payment order. Please try again.')
+            return redirect('register')
+            
+    except User.DoesNotExist:
+        messages.error(request, 'User not found. Please register again.')
+        return redirect('register')
+
+
 # Debug endpoint (staff-only): show active storage backend and sample image URLs
 @login_required
 def storage_debug(request):
@@ -749,3 +893,66 @@ def storage_debug(request):
         return JsonResponse({'ok': True, 'info': info, 'samples': samples})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+# Registration status check view
+def check_registration_status(request):
+    """
+    Allow users to check if they have an incomplete registration and complete payment.
+    Useful when users forget their registration status.
+    """
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        
+        if not email:
+            messages.error(request, 'Please enter your email address.')
+            return render(request, 'inventory/check_registration.html')
+        
+        try:
+            user = User.objects.get(email=email)
+            
+            # Check if user is already active with subscription
+            if user.is_active:
+                try:
+                    subscription = user.subscription
+                    if subscription.is_active:
+                        messages.info(request, 'Your account is already active. You can login now.')
+                        return redirect('login')
+                    else:
+                        messages.warning(request, 'Your subscription has expired. Please renew.')
+                        return redirect('login')
+                except Subscription.DoesNotExist:
+                    messages.warning(request, 'Your account exists but has no active subscription.')
+                    return redirect('login')
+            
+            # Check if email is verified but payment not completed
+            try:
+                verification = user.email_verification
+                if verification.email_verified:
+                    messages.success(request, 
+                        f'Found your registration! Your email is verified. Redirecting to payment...')
+                    # Set session for payment
+                    request.session['user_id'] = user.id
+                    return redirect('proceed_to_payment', user_id=user.id)
+                else:
+                    if verification.is_expired:
+                        messages.error(request, 
+                            'Your verification link has expired. Please register again.')
+                        return redirect('register')
+                    else:
+                        messages.info(request, 
+                            'Please check your email for the verification link.')
+                        return redirect('email_verification_sent')
+            except EmailVerificationToken.DoesNotExist:
+                messages.error(request, 
+                    'Registration found but no verification token. Please register again.')
+                return redirect('register')
+                
+        except User.DoesNotExist:
+            messages.error(request, 
+                'No registration found with this email. Please register first.')
+            return redirect('register')
+    
+    return render(request, 'inventory/check_registration.html', {
+        'title': 'Check Registration Status - DiecastCollector Pro'
+    })

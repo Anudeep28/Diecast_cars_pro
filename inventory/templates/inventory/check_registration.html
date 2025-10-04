@@ -1,0 +1,65 @@
+{% extends "inventory/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0"><i class="fas fa-search"></i> Check Registration Status</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Enter your email address to check if you have an incomplete registration 
+                        or need to complete your payment.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                            <input 
+                                type="email" 
+                                class="form-control form-control-lg" 
+                                id="email" 
+                                name="email" 
+                                placeholder="Enter your registered email"
+                                required
+                            >
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg btn-block w-100">
+                            <i class="fas fa-search"></i> Check Status
+                        </button>
+                    </form>
+
+                    <div class="mt-4 text-center">
+                        <hr>
+                        <p class="mb-2">
+                            <a href="{% url 'register' %}" class="text-decoration-none">
+                                <i class="fas fa-user-plus"></i> New Registration
+                            </a>
+                        </p>
+                        <p class="mb-0">
+                            <a href="{% url 'login' %}" class="text-decoration-none">
+                                <i class="fas fa-sign-in-alt"></i> Already have an account? Login
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="fas fa-info-circle text-info"></i> What happens next?</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>If your email is <strong>verified but payment is pending</strong>, we'll take you directly to payment</li>
+                        <li>If your account is <strong>already active</strong>, we'll redirect you to login</li>
+                        <li>If we can't find your email, you'll need to <strong>register first</strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - DiecastCollector Pro</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #007bff;
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #007bff;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            margin-top: 30px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .link-text {
+            word-break: break-all;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏎️ DiecastCollector Pro</h1>
+            <p style="margin: 10px 0 0 0; color: #6c757d;">Welcome to Your Collection Hub</p>
+        </div>
+        
+        <div class="content">
+            <h2 style="color: #333;">Hello {{ user.first_name|default:user.username }}!</h2>
+            
+            <p>Thank you for registering with <strong>DiecastCollector Pro</strong>! We're excited to have you join our community of model car enthusiasts.</p>
+            
+            <div class="info-box">
+                <strong>📧 Verify Your Email Address</strong>
+                <p style="margin: 10px 0 0 0;">To complete your registration and proceed with payment, please verify your email address by clicking the button below:</p>
+            </div>
+            
+            <div class="button-container">
+                <a href="{{ verification_url }}" class="button">
+                    ✓ Verify My Email Address
+                </a>
+            </div>
+            
+            <p style="text-align: center; color: #6c757d; font-size: 14px;">
+                Or copy and paste this link into your browser:
+            </p>
+            <div class="link-text">
+                {{ verification_url }}
+            </div>
+            
+            <div class="warning-box">
+                <strong>⏰ Important:</strong>
+                <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                    <li>This verification link will expire in <strong>{{ expires_hours }} hours</strong></li>
+                    <li>After verification, you'll be directed to complete your payment</li>
+                    <li>Your account will be activated once payment is confirmed</li>
+                </ul>
+            </div>
+            
+            <h3 style="color: #333; margin-top: 30px;">What's Included:</h3>
+            <ul style="color: #495057;">
+                <li>📊 Track your entire diecast collection</li>
+                <li>💰 Monitor market values and price trends</li>
+                <li>📦 Manage deliveries and order tracking</li>
+                <li>⭐ Rate sellers and maintain feedback</li>
+                <li>📈 View portfolio analytics and insights</li>
+            </ul>
+            
+            <p style="margin-top: 30px;">If you didn't create an account with DiecastCollector Pro, please ignore this email.</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>DiecastCollector Pro</strong></p>
+            <p>Your Personal Diecast Collection Manager</p>
+            <p style="font-size: 12px; color: #adb5bd; margin-top: 15px;">
+                This is an automated email. Please do not reply to this message.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

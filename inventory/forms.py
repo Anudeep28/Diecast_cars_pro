@@ -119,9 +119,26 @@ class UserRegistrationForm(UserCreationForm):
         fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2', 'agree_subscription']
     
     def clean_email(self):
-        """Validate that the email is unique"""
+        """Validate that the email is unique or belongs to an incomplete registration"""
         email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
+        existing_users = User.objects.filter(email=email)
+        
+        if existing_users.exists():
+            user = existing_users.first()
+            
+            # Check if this is an incomplete registration (verified email but no subscription)
+            if not user.is_active:
+                try:
+                    verification = user.email_verification
+                    if verification.email_verified:
+                        # This user has verified email but didn't complete payment
+                        raise forms.ValidationError(
+                            f'This email is already registered and verified. '
+                            f'<a href="/register/?email={email}">Click here to complete your payment</a>.'
+                        )
+                except:
+                    pass
+            
             raise forms.ValidationError("An account with this email address already exists.")
         return email
     

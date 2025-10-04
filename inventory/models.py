@@ -5,6 +5,7 @@ from django.db.models import F
 from datetime import timedelta, datetime
 import uuid
 import os
+import secrets
 
 # Create your models here.
 
@@ -15,6 +16,11 @@ def car_image_upload_path(instance, filename):
     new_filename = f"{instance.model_name}_{instance.manufacturer}_{uuid.uuid4().hex}.{ext}"
     # Return the upload path
     return os.path.join('car_images', new_filename)
+
+
+def generate_verification_token():
+    """Generate a secure random token for email verification"""
+    return secrets.token_urlsafe(32)
 class DiecastCar(models.Model):
     STATUS_CHOICES = [
         ('Purchased/Paid', 'Purchased/Paid'),
@@ -135,6 +141,42 @@ class Subscription(models.Model):
         if not self.is_valid:
             return False
         return 0 < self.days_remaining <= 7
+
+
+class EmailVerificationToken(models.Model):
+    """
+    Email verification tokens for new user registrations.
+    Token expires after 24 hours.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_verification')
+    token = models.CharField(max_length=64, unique=True, default=generate_verification_token)
+    email_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name = 'Email Verification Token'
+        verbose_name_plural = 'Email Verification Tokens'
+    
+    def __str__(self):
+        return f"Verification token for {self.user.username}"
+    
+    def save(self, *args, **kwargs):
+        # Set expiration to 24 hours from creation if not set
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(hours=24)
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_expired(self):
+        """Check if token has expired"""
+        return timezone.now() > self.expires_at
+    
+    @property
+    def is_valid(self):
+        """Check if token is valid (not expired and not already verified)"""
+        return not self.is_expired and not self.email_verified
+
 
 # Marketplace integration models
 MARKETPLACE_CHOICES = [
