@@ -35,7 +35,7 @@ __all__ = [
     'subscription_callback', 'payment_success', 'payment_failed',
     'subscription_renew', 'subscription_details', 'profile',
     'email_verification_sent', 'verify_email', 'proceed_to_payment',
-    'storage_debug', 'check_registration_status'
+    'storage_debug', 'check_registration_status', 'export_collection_csv'
 ]
 
 globals().update({name: getattr(_primary_views, name) for name in __all__})

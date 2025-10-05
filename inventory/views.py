@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db.models import Sum, Avg, Count, Case, When, F
 from django.utils import timezone
 from django.conf import settings
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
@@ -14,6 +14,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from datetime import timedelta, datetime
 import json
+import csv
 from .models import DiecastCar, Subscription, MarketPrice, EmailVerificationToken
 from .forms import DiecastCarForm, FeedbackForm, UserRegistrationForm, SubscriptionForm
 from .razorpay_client import RazorpayClient
@@ -956,3 +957,58 @@ def check_registration_status(request):
     return render(request, 'inventory/check_registration.html', {
         'title': 'Check Registration Status - DiecastCollector Pro'
     })
+
+@login_required
+def export_collection_csv(request):
+    """Export user's diecast collection to CSV format"""
+    # Create the HttpResponse object with CSV header
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="diecast_collection_{timezone.now().strftime("%Y%m%d")}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Write header row
+    writer.writerow([
+        'Model Name',
+        'Manufacturer',
+        'Scale',
+        'Price (₹)',
+        'Shipping Cost (₹)',
+        'Advance Payment (₹)',
+        'Remaining Payment (₹)',
+        'Purchase Date',
+        'Delivery Due Date',
+        'Delivered Date',
+        'Status',
+        'Seller Name',
+        'Purchase Link',
+        'Product Quality',
+        'Packaging Quality',
+        'Notes'
+    ])
+    
+    # Get all cars for the user
+    cars = DiecastCar.objects.filter(user=request.user).order_by('-purchase_date')
+    
+    # Write data rows
+    for car in cars:
+        writer.writerow([
+            car.model_name,
+            car.manufacturer,
+            car.scale or '',
+            car.price,
+            car.shipping_cost,
+            car.advance_payment,
+            car.remaining_payment,
+            car.purchase_date.strftime('%Y-%m-%d') if car.purchase_date else '',
+            car.delivery_due_date.strftime('%Y-%m-%d') if car.delivery_due_date else '',
+            car.delivered_date.strftime('%Y-%m-%d') if car.delivered_date else '',
+            car.status,
+            car.seller_name or '',
+            car.purchase_link or '',
+            car.product_quality or '',
+            car.packaging_quality or '',
+            car.notes or ''
+        ])
+    
+    return response

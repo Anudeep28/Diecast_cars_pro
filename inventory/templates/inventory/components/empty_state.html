@@ -1,0 +1,28 @@
+{% comment %}
+Reusable empty state component for better UX
+Usage: {% include 'inventory/components/empty_state.html' with icon='bi-car-front' title='No Cars Yet' message='Start building your collection' cta_text='Add Your First Car' cta_url='car_create' %}
+{% endcomment %}
+
+<div class="text-center py-5 my-4">
+    <div class="empty-state-icon mb-4">
+        <i class="bi {{ icon|default:'bi-inbox' }} text-muted" style="font-size: 4rem; opacity: 0.3;"></i>
+    </div>
+    <h4 class="text-muted mb-2">{{ title|default:'No Items Found' }}</h4>
+    <p class="text-muted mb-4">{{ message|default:'Get started by adding your first item' }}</p>
+    {% if cta_url %}
+    <a href="{% url cta_url %}" class="btn btn-primary btn-lg">
+        <i class="bi bi-plus-circle me-2"></i>{{ cta_text|default:'Add Item' }}
+    </a>
+    {% endif %}
+</div>
+
+<style>
+.empty-state-icon {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+</style>

@@ -226,6 +226,8 @@ EBAY_APP_ID = os.environ.get('EBAY_APP_ID')
 HOBBYDB_API_KEY = os.environ.get('HOBBYDB_API_KEY')
 # Optional: Facebook cookie string for Marketplace scraping (risk: complies with FB TOS)
 FACEBOOK_COOKIE = os.environ.get('FACEBOOK_COOKIE')
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY')
+# Legacy Gemini API key (deprecated, use DeepSeek instead)
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 # Base URL for link generation in emails

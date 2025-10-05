@@ -43,9 +43,9 @@ class FetchMarketPriceView(View):
                 'daily_limit': MarketFetchCredit.DAILY_LIMIT
             }, status=429)  # 429 Too Many Requests
 
-        gemini_api_key = getattr(settings, 'GEMINI_API_KEY', None)
-        if not gemini_api_key:
-            return HttpResponseServerError("GEMINI_API_KEY not configured")
+        deepseek_api_key = getattr(settings, 'DEEPSEEK_API_KEY', None)
+        if not deepseek_api_key:
+            return HttpResponseServerError("DEEPSEEK_API_KEY not configured")
             
         # Consume one credit before processing
         try:

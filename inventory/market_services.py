@@ -148,10 +148,10 @@ class WebSearchProvider(BaseProvider):
     def fetch(self, car: DiecastCar, link: Optional[CarMarketLink] = None) -> List[MarketQuote]:
         """Use new agentic search for robust market price extraction."""
         logger = logging.getLogger(__name__)
-        gemini_key = getattr(settings, 'GEMINI_API_KEY', None)
+        deepseek_key = getattr(settings, 'DEEPSEEK_API_KEY', None)
         
-        if not gemini_key:
-            logger.warning("No Gemini API key - skipping web search")
+        if not deepseek_key:
+            logger.warning("No DeepSeek API key - skipping web search")
             return []
             
         manu = (car.manufacturer or '').strip()
@@ -167,7 +167,7 @@ class WebSearchProvider(BaseProvider):
             # Import and use the new agentic search
             from .agentic_market_search import search_market_prices_agentic
             
-            result = search_market_prices_agentic(car, gemini_key, num_results=3)
+            result = search_market_prices_agentic(car, deepseek_key, num_results=3)
             
             if not result.get('success') or not result.get('listings'):
                 logger.warning(f"Agentic search returned no results: {result.get('error', 'Unknown error')}")

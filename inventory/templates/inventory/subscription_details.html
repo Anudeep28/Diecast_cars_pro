@@ -85,14 +85,55 @@
                 {% endif %}
             </div>
             <div class="col-md-4">
-                <div class="card">
+                <!-- Progress Ring -->
+                <div class="card mb-3" data-aos="fade-left">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Subscription Status</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <svg class="progress-ring" width="120" height="120">
+                            <circle
+                                class="progress-ring-circle"
+                                stroke="#e5e7eb"
+                                stroke-width="8"
+                                fill="transparent"
+                                r="52"
+                                cx="60"
+                                cy="60"/>
+                            <circle
+                                id="progress-circle"
+                                class="progress-ring-circle"
+                                stroke="{% if subscription.days_remaining > 7 %}#16a34a{% elif subscription.days_remaining > 3 %}#f59e0b{% else %}#ef4444{% endif %}"
+                                stroke-width="8"
+                                fill="transparent"
+                                r="52"
+                                cx="60"
+                                cy="60"
+                                stroke-dasharray="327"
+                                stroke-dashoffset="327"/>
+                        </svg>
+                        <div class="progress-ring-text">
+                            <span id="days-counter">{{ subscription.days_remaining }}</span>
+                            <span class="progress-ring-label">Days Left</span>
+                        </div>
+                        <p class="mt-3 mb-0 text-muted small">
+                            {% if subscription.is_valid %}
+                                Expires on {{ subscription.end_date|date:"M d, Y" }}
+                            {% else %}
+                                Subscription expired
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="card" data-aos="fade-left" data-aos-delay="100">
                     <div class="card-header">
                         <h5>Support</h5>
                     </div>
                     <div class="card-body">
                         <p>If you have any questions about your subscription, please contact our support team.</p>
-                        <a href="mailto:support@diecastcollector.com" class="btn btn-outline-primary btn-block">
-                            <i class="far fa-envelope"></i> Email Support
+                        <a href="mailto:support@diecastcollector.com" class="btn btn-outline-primary btn-block w-100">
+                            <i class="bi bi-envelope"></i> Email Support
                         </a>
                     </div>
                 </div>
@@ -100,4 +141,28 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate Progress Ring
+    const progressCircle = document.getElementById('progress-circle');
+    const daysRemaining = {{ subscription.days_remaining|default:0 }};
+    const totalDays = 30; // Assuming 30-day subscription
+    
+    if (progressCircle && daysRemaining >= 0) {
+        const radius = 52;
+        const circumference = 2 * Math.PI * radius;
+        const percentage = Math.min(daysRemaining / totalDays, 1);
+        const offset = circumference * (1 - percentage);
+        
+        // Animate from full circle to actual progress
+        setTimeout(() => {
+            progressCircle.style.transition = 'stroke-dashoffset 1.5s ease-out';
+            progressCircle.style.strokeDashoffset = offset;
+        }, 100);
+    }
+});
+</script>
 {% endblock %}

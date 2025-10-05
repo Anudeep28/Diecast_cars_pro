@@ -30,48 +30,35 @@ class MarketListing:
     confidence: float = 1.0
 
 class AgenticMarketSearch:
-    """Agentic market search using Gemini for intelligent search and extraction"""
+    """Agentic market search using DeepSeek for intelligent search and extraction"""
     
-    def __init__(self, gemini_api_key: str, verbose: bool = False):
-        self.api_key = gemini_api_key
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    def __init__(self, deepseek_api_key: str, verbose: bool = False):
+        self.api_key = deepseek_api_key
         self.verbose = verbose
         
-    def _call_gemini(self, prompt: str, temperature: float = 0.3) -> str:
-        """Direct Gemini API call with error handling"""
+    def _call_deepseek(self, prompt: str, temperature: float = 0.3) -> str:
+        """Direct DeepSeek API call with error handling"""
         try:
-            params = {"key": self.api_key}
-            payload = {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [{"text": prompt}]
-                    }
-                ],
-                "generationConfig": {
-                    "temperature": temperature,
-                    "maxOutputTokens": 4096,
-                }
-            }
+            from openai import OpenAI
             
-            response = requests.post(
-                self.base_url,
-                params=params,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=30
+            client = OpenAI(
+                api_key=self.api_key,
+                base_url="https://api.deepseek.com"
             )
-            response.raise_for_status()
             
-            data = response.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                content = candidates[0].get("content", {})
-                parts = content.get("parts", [])
-                if parts:
-                    return parts[0].get("text", "").strip()
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=4096
+            )
+            
+            text = response.choices[0].message.content
+            return text.strip() if text else ""
         except Exception as e:
-            logger.error(f"Gemini API call failed: {e}")
+            logger.error(f"DeepSeek API call failed: {e}")
         return ""
     
     def _debug(self, msg: str) -> None:
@@ -461,7 +448,7 @@ Example output format:
 Hot Wheels Ferrari 488 GTB 1:64 diecast for sale price
 """
         
-        query = self._call_gemini(prompt, temperature=0.1)
+        query = self._call_deepseek(prompt, temperature=0.1)
         if not query or len(query) > 200:
             # Fallback to simple query
             query = f"{manufacturer} {model_name} {scale} diecast for sale price".strip()
@@ -479,41 +466,9 @@ Hot Wheels Ferrari 488 GTB 1:64 diecast for sale price
         """Use direct web scraping to get search results"""
         urls = []
         
-        # Method 1: Direct Google search scraping
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
-            }
-            google_url = f"https://www.google.com/search?q={quote_plus(query)}&num={num_results + 2}"
-            response = requests.get(google_url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Extract URLs from Google search results
-                for g in soup.find_all('div', class_='g'):
-                    link = g.find('a')
-                    if link and link.get('href'):
-                        url = link['href']
-                        if url.startswith('http') and 'google.com' not in url and 'youtube.com' not in url:
-                            urls.append(url)
-                            if len(urls) >= num_results:
-                                break
-                
-                if urls:
-                    logger.info(f"Found {len(urls)} URLs via Google scraping")
-                    return urls[:num_results]
-        except Exception as e:
-            logger.warning(f"Google scraping failed: {e}")
-        
-        # Fallback to DuckDuckGo HTML scraping
+        # Method 1: DuckDuckGo HTML scraping
+        self._debug("Starting search with DuckDuckGo...")
         if not urls:
-            self._debug("Google search returned no results, trying DuckDuckGo...")
             try:
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -553,9 +508,9 @@ Hot Wheels Ferrari 488 GTB 1:64 diecast for sale price
                 logger.warning(f"DuckDuckGo search failed: {e}")
                 self._debug(f"DuckDuckGo search error: {e}")
         
-        # Final fallback: Bing search
+        # Method 2: Bing search
         if not urls:
-            self._debug("Trying Bing search as final fallback...")
+            self._debug("DuckDuckGo failed, trying Bing...")
             try:
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -663,7 +618,7 @@ Currency examples:
 Or return: NO_MATCH
 """
             
-            result = self._call_gemini(prompt, temperature=0.1)
+            result = self._call_deepseek(prompt, temperature=0.1)
             
             # Parse the result
             if "NO_MATCH" in result:
@@ -804,14 +759,14 @@ Or return: NO_MATCH
         return filtered
 
 
-def search_market_prices_agentic(car, gemini_api_key: str, num_results: int = 3, verbose: bool = False) -> Dict:
+def search_market_prices_agentic(car, deepseek_api_key: str, num_results: int = 3, verbose: bool = False) -> Dict:
     """
     Main entry point for agentic market search.
     Returns a dictionary with listings and statistics.
     """
     
-    if not gemini_api_key:
-        logger.error("No Gemini API key provided")
+    if not deepseek_api_key:
+        logger.error("No DeepSeek API key provided")
         return {'listings': [], 'query': '', 'error': 'No API key'}
     
     # Extract car details
@@ -824,7 +779,7 @@ def search_market_prices_agentic(car, gemini_api_key: str, num_results: int = 3,
     
     try:
         # Initialize the agentic search
-        searcher = AgenticMarketSearch(gemini_api_key, verbose=verbose)
+        searcher = AgenticMarketSearch(deepseek_api_key, verbose=verbose)
         
         # Perform search and extraction
         listings, query = searcher.search_and_extract(

@@ -19,6 +19,9 @@ urlpatterns = [
     path('car/<int:pk>/delete/', views.car_delete, name='car_delete'),
     path('car/<int:pk>/status/', views.update_status, name='update_status'),
     
+    # Export functionality
+    path('export/csv/', views.export_collection_csv, name='export_collection_csv'),
+    
     # Authentication URLs
     path('register/', views.register, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='inventory/login.html'), name='login'),

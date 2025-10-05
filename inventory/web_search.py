@@ -62,7 +62,7 @@ if PYDANTIC_AVAILABLE:
             quotes: List[MarketQuote] = []
             model = car.model_name
             brand = car.manufacturer
-            gemini_key = getattr(settings, 'GEMINI_API_KEY', None)
+            deepseek_key = getattr(settings, 'DEEPSEEK_API_KEY', None)
             
             # Reset tracking for this run
             self.last_queries = []
@@ -89,7 +89,7 @@ if PYDANTIC_AVAILABLE:
             for q in queries:
                 try:
                     results, markdown_content = search_and_extract_prices(
-                        q, gemini_key, max_results=8, 
+                        q, deepseek_key, max_results=8, 
                         car_id=car.id, car_name=f"{brand} {model}"
                     )
                     

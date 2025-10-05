@@ -8,10 +8,10 @@
     {% block extra_head %}{% endblock %}
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Bootstrap Icons (Primary icon library) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- AOS (Animate On Scroll) -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
     <!-- App Theme -->
     <link rel="stylesheet" href="{% static 'inventory/theme.css' %}">
 </head>
@@ -24,7 +24,7 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
@@ -41,6 +41,11 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'logout' %}">Logout</a></li>
                         </ul>
+                    </li>
+                    <li class="nav-item ms-2">
+                        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode">
+                            <i class="bi bi-moon-stars" id="theme-icon"></i>
+                        </button>
                     </li>
                     {% else %}
                     <li class="nav-item">
@@ -89,6 +94,91 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- CountUp.js for animated numbers -->
+    <script src="https://cdn.jsdelivr.net/npm/countup@1.8.2/dist/countUp.min.js"></script>
+    <!-- AOS (Animate On Scroll) -->
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 600,
+            easing: 'ease-out',
+            once: true,
+            offset: 50
+        });
+    </script>
+    
+    <!-- Dark Mode Toggle Script - Separate for better control -->
+    <script>
+        // Apply theme immediately before page loads to prevent flash
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                console.log('Initial theme applied:', savedTheme);
+            } catch (e) {
+                console.error('Error applying initial theme:', e);
+            }
+        })();
+
+        // Dark Mode Theme Toggle Handler
+        function initThemeToggle() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = document.getElementById('theme-icon');
+            const htmlElement = document.documentElement;
+            
+            console.log('Theme toggle button:', themeToggle);
+            console.log('Theme icon:', themeIcon);
+            
+            if (!themeToggle) {
+                console.error('Theme toggle button not found!');
+                return;
+            }
+            
+            // Function to update icon
+            function updateIcon(theme) {
+                if (!themeIcon) return;
+                
+                if (theme === 'dark') {
+                    themeIcon.className = 'bi bi-sun-fill';
+                } else {
+                    themeIcon.className = 'bi bi-moon-stars';
+                }
+                console.log('Icon updated for theme:', theme);
+            }
+            
+            // Set initial icon
+            const currentTheme = htmlElement.getAttribute('data-theme') || 'light';
+            updateIcon(currentTheme);
+            
+            // Add click handler
+            themeToggle.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                const currentTheme = htmlElement.getAttribute('data-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                console.log('Toggle clicked! Current:', currentTheme, 'New:', newTheme);
+                
+                // Apply new theme
+                htmlElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateIcon(newTheme);
+                
+                console.log('Theme changed successfully to:', newTheme);
+            });
+            
+            console.log('Theme toggle initialized successfully');
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initThemeToggle);
+        } else {
+            initThemeToggle();
+        }
+    </script>
     {% block extra_js %}{% endblock %}
     {% block extra_scripts %}{% endblock %}
 </body>

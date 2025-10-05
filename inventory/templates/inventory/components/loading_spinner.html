@@ -1,0 +1,35 @@
+{% comment %}
+Reusable loading spinner component
+Usage: {% include 'inventory/components/loading_spinner.html' with message='Fetching market prices...' %}
+{% endcomment %}
+
+<div class="text-center py-4 loading-spinner-container">
+    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    {% if message %}
+    <p class="text-muted mb-0">
+        <i class="bi bi-hourglass-split me-2"></i>{{ message }}
+    </p>
+    {% endif %}
+</div>
+
+<style>
+.loading-spinner-container {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.spinner-border {
+    animation: spinner-border 0.75s linear infinite, pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+</style>

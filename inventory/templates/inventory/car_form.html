@@ -17,20 +17,26 @@
                     {% csrf_token %}
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label for="{{ form.model_name.id_for_label }}" class="form-label">Model Name</label>
+                            <label for="{{ form.model_name.id_for_label }}" class="form-label">
+                                <i class="bi bi-tag me-1"></i>Model Name
+                            </label>
                             <input type="text" name="{{ form.model_name.name }}" id="{{ form.model_name.id_for_label }}" 
                                   class="form-control {% if form.model_name.errors %}is-invalid{% endif %}"
-                                  value="{{ form.model_name.value|default:'' }}">
+                                  value="{{ form.model_name.value|default:'' }}"
+                                  placeholder="e.g., BMW R69S, Ferrari F40">
                             {% if form.model_name.errors %}
                                 <div class="invalid-feedback">{{ form.model_name.errors.0 }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-4">
-                            <label for="{{ form.manufacturer.id_for_label }}" class="form-label">Manufacturer</label>
+                            <label for="{{ form.manufacturer.id_for_label }}" class="form-label">
+                                <i class="bi bi-building me-1"></i>Manufacturer
+                            </label>
                             <input type="text" name="{{ form.manufacturer.name }}" id="{{ form.manufacturer.id_for_label }}" 
                                   class="form-control {% if form.manufacturer.errors %}is-invalid{% endif %}"
                                   value="{{ form.manufacturer.value|default:'' }}"
-                                  list="manufacturers-list" autocomplete="off">
+                                  list="manufacturers-list" autocomplete="off"
+                                  placeholder="e.g., Minichamps, AutoArt, CMC">
                             
                             <datalist id="manufacturers-list">
                                 {% for manufacturer in form.manufacturers_list %}
@@ -41,7 +47,7 @@
                             {% if form.manufacturer.errors %}
                                 <div class="invalid-feedback">{{ form.manufacturer.errors.0 }}</div>
                             {% endif %}
-                            <div class="form-text">Select from existing or type a new manufacturer</div>
+                            <div class="form-text"><i class="bi bi-lightbulb text-warning"></i> Select from your existing manufacturers or add a new one</div>
                         </div>
                         <div class="col-md-4">
                             <label for="{{ form.scale.id_for_label }}" class="form-label">Scale</label>
@@ -59,19 +65,25 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="{{ form.price.id_for_label }}" class="form-label">Price (₹)</label>
+                            <label for="{{ form.price.id_for_label }}" class="form-label">
+                                <i class="bi bi-currency-rupee me-1"></i>Price (₹)
+                            </label>
                             <input type="number" step="0.01" name="{{ form.price.name }}" id="{{ form.price.id_for_label }}" 
                                   class="form-control {% if form.price.errors %}is-invalid{% endif %}"
-                                  value="{{ form.price.value|default:'0' }}">
+                                  value="{{ form.price.value|default:'0' }}"
+                                  placeholder="0.00">
                             {% if form.price.errors %}
                                 <div class="invalid-feedback">{{ form.price.errors.0 }}</div>
                             {% endif %}
                         </div>
                         <div class="col-md-6">
-                            <label for="{{ form.shipping_cost.id_for_label }}" class="form-label">Shipping Cost (₹)</label>
+                            <label for="{{ form.shipping_cost.id_for_label }}" class="form-label">
+                                <i class="bi bi-truck me-1"></i>Shipping Cost (₹)
+                            </label>
                             <input type="number" step="0.01" name="{{ form.shipping_cost.name }}" id="{{ form.shipping_cost.id_for_label }}" 
                                   class="form-control {% if form.shipping_cost.errors %}is-invalid{% endif %}"
-                                  value="{{ form.shipping_cost.value|default:'0' }}">
+                                  value="{{ form.shipping_cost.value|default:'0' }}"
+                                  placeholder="0.00">
                             {% if form.shipping_cost.errors %}
                                 <div class="invalid-feedback">{{ form.shipping_cost.errors.0 }}</div>
                             {% endif %}
@@ -112,11 +124,14 @@
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="{{ form.seller_name.id_for_label }}" class="form-label">Seller Name</label>
+                            <label for="{{ form.seller_name.id_for_label }}" class="form-label">
+                                <i class="bi bi-shop me-1"></i>Seller Name
+                            </label>
                             <input type="text" name="{{ form.seller_name.name }}" id="{{ form.seller_name.id_for_label }}" 
                                   class="form-control {% if form.seller_name.errors %}is-invalid{% endif %}"
                                   value="{{ form.seller_name.value|default:'' }}"
-                                  list="sellers-list" autocomplete="off">
+                                  list="sellers-list" autocomplete="off"
+                                  placeholder="e.g., John's Diecast Shop">
                             
                             <datalist id="sellers-list">
                                 {% for seller in form.sellers_list %}
@@ -127,7 +142,7 @@
                             {% if form.seller_name.errors %}
                                 <div class="invalid-feedback">{{ form.seller_name.errors.0 }}</div>
                             {% endif %}
-                            <div class="form-text">Select from existing or type a new seller</div>
+                            <div class="form-text"><i class="bi bi-lightbulb text-warning"></i> Select from your existing sellers or add a new one</div>
                         </div>
                     </div>
                     
@@ -249,9 +264,13 @@
 
 
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>Save Car
+                        </button>
                     </div>
                 </form>
             </div>

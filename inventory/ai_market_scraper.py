@@ -1,7 +1,7 @@
 """
 AI-powered market price scraper for diecast model cars.
 - Generates a focused web search query using Gemini from manufacturer, model, and scale
-- Uses googlesearch to fetch top URLs
+- Uses DuckDuckGo (with Bing fallback) to fetch top URLs
 - Crawls each URL with crawl4ai and extracts structured price info via LLM schema (Pydantic)
 Returns a tuple: (List[PriceItem], markdown_by_url: dict, query_used: str)
 """
@@ -45,45 +45,38 @@ class PriceItem(BaseModel):
     seller: Optional[str] = Field(None, description="Seller or marketplace name")
 
 
-def _call_gemini_generate(api_key: str, prompt: str, max_retries: int = 3) -> str:
-    """Call Gemini generateContent endpoint with rate limiting and retry logic."""
-    api_url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-1.5-flash:generateContent"
+def _call_deepseek_generate(api_key: str, prompt: str, max_retries: int = 3) -> str:
+    """Call DeepSeek API endpoint with rate limiting and retry logic."""
+    from openai import OpenAI
+    
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.deepseek.com"
     )
-    params = {"key": api_key}
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": prompt}],
-            }
-        ]
-    }
     
     for attempt in range(max_retries):
         try:
             # Add delay between API calls to respect rate limits
             if attempt > 0:
                 delay = min(2 ** attempt, 10)  # Exponential backoff, max 10 seconds
-                logger.info(f"Retrying Gemini API call in {delay}s (attempt {attempt + 1}/{max_retries})")
+                logger.info(f"Retrying DeepSeek API call in {delay}s (attempt {attempt + 1}/{max_retries})")
                 time.sleep(delay)
             
-            r = requests.post(api_url, params=params, json=payload, headers={"Content-Type": "application/json"}, timeout=20)
-            r.raise_for_status()
-            data = r.json()
-            candidates = data.get("candidates") or []
-            if not candidates:
-                return ""
-            content = candidates[0].get("content") or {}
-            parts = content.get("parts") or []
-            if not parts:
-                return ""
-            text = parts[0].get("text") or ""
-            return text.strip()
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                max_tokens=500
+            )
             
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:  # Rate limit error
+            text = response.choices[0].message.content
+            return text.strip() if text else ""
+            
+        except Exception as e:
+            error_msg = str(e)
+            if "429" in error_msg or "rate" in error_msg.lower():  # Rate limit error
                 if attempt < max_retries - 1:
                     logger.warning(f"Rate limit hit, retrying in {2 ** (attempt + 1)}s...")
                     continue
@@ -91,19 +84,17 @@ def _call_gemini_generate(api_key: str, prompt: str, max_retries: int = 3) -> st
                     logger.error(f"Rate limit exceeded after {max_retries} attempts")
                     raise
             else:
-                raise
-        except Exception as e:
-            if attempt < max_retries - 1:
-                logger.warning(f"Gemini API error: {e}, retrying...")
-                continue
-            else:
-                raise
+                if attempt < max_retries - 1:
+                    logger.warning(f"DeepSeek API error: {e}, retrying...")
+                    continue
+                else:
+                    raise
     
     return ""
 
 
 def generate_search_query(manufacturer: str, model: str, scale: Optional[str], api_key: str) -> str:
-    """Use Gemini to produce a single focused web search query for pricing pages."""
+    """Use DeepSeek to produce a single focused web search query for pricing pages."""
     manu = (manufacturer or "").strip()
     mdl = (model or "").strip()
     scl = (scale or "").strip()
@@ -115,10 +106,10 @@ Avoid quotes, code fences, or extra commentary. Return ONLY the query text.
 
 {context}
 """
-    text = _call_gemini_generate(api_key, prompt)
+    text = _call_deepseek_generate(api_key, prompt)
     # Clean common wrappers
     text = text.strip().strip('"').strip("'")
-    # If Gemini returns multiple lines, pick the first non-empty
+    # If DeepSeek returns multiple lines, pick the first non-empty
     for line in text.splitlines():
         q = line.strip().strip('"').strip("'")
         if q:
@@ -479,55 +470,12 @@ async def _process_urls(urls: List[str], api_token: str) -> Tuple[List[PriceItem
 
 
 def search_web_with_fallbacks(query: str, num_results: int = 5) -> List[str]:
-    """Robust web search with multiple fallbacks: Google → DuckDuckGo → Bing → Marketplace URLs"""
+    """Robust web search with multiple fallbacks: DuckDuckGo → Bing → Marketplace URLs"""
     urls = []
     
-    # Method 1: Try googlesearch library first (simplest)
-    try:
-        from googlesearch import search as google_search
-        urls = list(google_search(query, num_results=num_results + 2))
-        if urls:
-            logger.info(f"Found {len(urls)} URLs via googlesearch library")
-            return urls[:num_results]
-    except Exception as e:
-        logger.warning(f"googlesearch library failed: {e}")
-    
-    # Method 2: Direct Google search scraping
+    # Method 1: DuckDuckGo HTML scraping
+    print("Starting search with DuckDuckGo...")
     if not urls:
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
-            }
-            google_url = f"https://www.google.com/search?q={quote_plus(query)}&num={num_results + 2}"
-            response = requests.get(google_url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Extract URLs from Google search results
-                for g in soup.find_all('div', class_='g'):
-                    link = g.find('a')
-                    if link and link.get('href'):
-                        url = link['href']
-                        if url.startswith('http') and 'google.com' not in url and 'youtube.com' not in url:
-                            urls.append(url)
-                            if len(urls) >= num_results:
-                                break
-                
-                if urls:
-                    logger.info(f"Found {len(urls)} URLs via Google scraping")
-                    return urls[:num_results]
-        except Exception as e:
-            logger.warning(f"Google scraping failed: {e}")
-    
-    # Method 3: DuckDuckGo HTML scraping
-    if not urls:
-        print("Google search failed, trying DuckDuckGo...")
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -566,7 +514,7 @@ def search_web_with_fallbacks(query: str, num_results: int = 5) -> List[str]:
         except Exception as e:
             logger.warning(f"DuckDuckGo search failed: {e}")
     
-    # Method 4: Bing search
+    # Method 2: Bing search
     if not urls:
         print("DuckDuckGo failed, trying Bing...")
         try:
@@ -615,7 +563,7 @@ def search_web_with_fallbacks(query: str, num_results: int = 5) -> List[str]:
 def search_market_prices_for_car(car, api_token: str, num_results: int = 3) -> Tuple[List[PriceItem], Dict[str, str], str]:
     """End-to-end flow with robust fallbacks:
     1) Generate a focused query via Gemini
-    2) Search web with multiple fallbacks (Google → DuckDuckGo → Bing → Marketplaces)
+    2) Search web with multiple fallbacks (DuckDuckGo → Bing → Marketplaces)
     3) Crawl and extract with optimized crawl4ai + LLM schema
     Returns (items, markdown_by_url, query_used)
     """

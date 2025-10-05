@@ -11,46 +11,55 @@
       <h1 class="mb-1">Your Diecast Collection</h1>
       <p class="text-muted mb-2 small">Modern overview of your portfolio with insights and trends.</p>
       <div class="quick-actions d-flex gap-2 flex-wrap">
-        <a href="{% url 'car_create' %}" class="btn btn-sm btn-primary"><i class="bi bi-plus-circle me-1"></i>Add New Car</a>
-        <a href="{% url 'subscription_renew' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Renew Subscription</a>
-        <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-person-circle me-1"></i>Profile</a>
+        <a href="{% url 'car_create' %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-circle me-1"></i>Add New Car
+        </a>
+        <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-primary">
+          <i class="bi bi-person-circle me-1"></i>Profile
+        </a>
+        <a href="{% url 'export_collection_csv' %}" class="btn btn-sm btn-outline-success" title="Export collection to CSV">
+          <i class="bi bi-download me-1"></i>Export CSV
+        </a>
+        <button onclick="window.print()" class="btn btn-sm btn-outline-secondary" title="Print collection">
+          <i class="bi bi-printer me-1"></i>Print
+        </button>
       </div>
     </div>
     <div class="col-lg-7">
       <div class="row g-2">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3" data-aos="fade-up" data-aos-delay="0">
           <div class="metric-card d-flex align-items-center">
             <i class="bi bi-wallet2 text-warning metric-icon"></i>
             <div>
               <div class="metric-label">Collection Value</div>
-              <div class="metric-value">₹{{ total_value|floatformat:2 }}</div>
+              <div class="metric-value"><span class="counter-value" data-count="{{ total_value }}">0</span></div>
             </div>
           </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3" data-aos="fade-up" data-aos-delay="100">
           <div class="metric-card d-flex align-items-center">
             <i class="bi bi-car-front text-primary metric-icon"></i>
             <div>
               <div class="metric-label">Total Cars</div>
-              <div class="metric-value">{{ total_cars }}</div>
+              <div class="metric-value"><span class="counter-value" data-count="{{ total_cars }}">0</span></div>
             </div>
           </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3" data-aos="fade-up" data-aos-delay="200">
           <div class="metric-card d-flex align-items-center">
             <i class="bi bi-cash-stack text-success metric-icon"></i>
             <div>
               <div class="metric-label">Total Spent</div>
-              <div class="metric-value">₹{{ total_spent|floatformat:2 }}</div>
+              <div class="metric-value"><span class="counter-value" data-count="{{ total_spent }}">0</span></div>
             </div>
           </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3" data-aos="fade-up" data-aos-delay="300">
           <div class="metric-card d-flex align-items-center">
             <i class="bi bi-graph-up text-info metric-icon"></i>
             <div>
               <div class="metric-label">Avg. Price</div>
-              <div class="metric-value">₹{{ avg_price|floatformat:2 }}</div>
+              <div class="metric-value"><span class="counter-value" data-count="{{ avg_price }}">0</span></div>
             </div>
           </div>
         </div>
@@ -60,9 +69,9 @@
 </section>
 
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-4" data-aos="fade-right">
         <!-- Collection Stats -->
-        <div class="dashboard-stats card mb-3">
+        <div class="dashboard-stats card card-premium mb-3">
             <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Collection Overview</h6>
             </div>
@@ -89,7 +98,7 @@
         </div>
         
         <!-- Market Portfolio -->
-        <div class="card mb-3">
+        <div class="card card-premium mb-3">
             <div class="card-header bg-success text-white py-2">
                 <h6 class="mb-0">Market Portfolio Value</h6>
             </div>
@@ -175,7 +184,7 @@
         </div>
 
         <!-- Status Distribution -->
-        <div class="card mb-3">
+        <div class="card card-premium mb-3">
             <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">Status Distribution</h6>
                 <span class="badge bg-light text-dark">Overview</span>
@@ -196,7 +205,7 @@
         </div>
         
         <!-- Monthly Activity - Compact -->
-        <div class="card">
+        <div class="card card-premium">
             <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Monthly Activity</h6>
             </div>
@@ -207,21 +216,23 @@
         </div>
     </div>
     
-    <div class="col-md-8">
+    <div class="col-md-8" data-aos="fade-left">
         <!-- Portfolio Valuation & Seller Ratings Row -->
         <div class="row mb-3">
             <!-- Portfolio Valuation -->
             <div class="col-lg-8 mb-3">
-                <div class="card h-100">
+                <div class="card card-premium h-100">
                     <div class="card-header bg-info text-white py-2">
                         <h6 class="mb-0">Portfolio Valuation</h6>
                     </div>
                     <div class="card-body">
                         <p class="text-muted small mb-3">Calculate portfolio value using existing market data and purchase prices (no new data fetching).</p>
-                        <button id="calculate-portfolio-btn" class="btn btn-info">Calculate Portfolio Value</button>
+                        <button id="calculate-portfolio-btn" class="btn btn-primary">
+                            <i class="bi bi-calculator me-2"></i>Calculate Portfolio Value
+                        </button>
                         <div id="portfolio-results-container" class="mt-3 d-none">
-                            <div id="portfolio-spinner" class="spinner-border text-info d-none" role="status">
-                                <span class="visually-hidden">Calculating...</span>
+                            <div id="portfolio-spinner" class="d-none">
+                                {% include 'inventory/components/loading_spinner.html' with message='Calculating your portfolio value...' %}
                             </div>
                             <div id="portfolio-results"></div>
                         </div>
@@ -231,7 +242,7 @@
 
             <!-- Seller Ratings -->
             <div class="col-lg-4 mb-3">
-                <div class="card h-100">
+                <div class="card card-premium h-100">
                     <div class="card-header bg-primary text-white py-2">
                         <h6 class="mb-0">Seller Ratings</h6>
                     </div>
@@ -264,7 +275,7 @@
         </div>
 
         <!-- Top Manufacturers & Scales -->  
-        <div class="card mb-3">
+        <div class="card card-premium mb-3">
             <div class="card-header bg-primary text-white py-2">
                 <h6 class="mb-0">Collection Insights</h6>
             </div>
@@ -273,6 +284,11 @@
                     <!-- Top Manufacturers -->
                     <div class="col-md-6">
                         <h6 class="text-muted mb-3">Top Manufacturers</h6>
+                        {% if top_manufacturers %}
+                        <div class="chart-box mb-3">
+                            <canvas id="manufacturerChart"></canvas>
+                        </div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-sm">
                                 <thead class="table-light">
@@ -300,6 +316,10 @@
                     <!-- Most Common Scales -->
                     <div class="col-md-6">
                         <h6 class="text-muted mb-3">Most Common Scales</h6>
+                        {% if top_manufacturers %}
+                        <!-- Spacer to align with manufacturer chart -->
+                        <div class="mb-3" style="height: 220px;"></div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-sm">
                                 <thead class="table-light">
@@ -336,10 +356,14 @@
         </div>
         
         <!-- Filter & Sort -->
-        <div class="card">
-            <div class="card-header bg-light">
-                <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filter & Sort</h6>
+        <div class="card card-premium" data-aos="fade-up">
+            <div class="card-header bg-light collapse-trigger" id="filter-header" data-bs-toggle="collapse" data-bs-target="#filter-collapse" aria-expanded="true">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filter & Sort</h6>
+                    <i class="bi bi-chevron-down"></i>
+                </div>
             </div>
+            <div class="collapse show" id="filter-collapse">
             <div class="card-body">
                 <form method="get" class="row g-3">
                     <div class="col-md-4">
@@ -376,12 +400,18 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Floating Action Button - Scroll to Top -->
+<button id="scroll-top-btn" class="fab d-none" title="Scroll to top">
+    <i class="bi bi-arrow-up"></i>
+</button>
+
 {% if cars %}
-<div class="row">
+<div class="row" data-aos="fade-up">
     <div class="col-md-12">
     <div class="table-responsive">
     <table class="table table-striped table-hover align-middle">
@@ -407,7 +437,11 @@
             <tr>
                 <td>
                     {% if car.image %}
-                        <img src="{{ car.image.url }}" alt="{{ car.model_name }}" class="img-thumbnail thumb-60">
+                        <a href="{% url 'car_detail' car.pk %}" class="car-image-link">
+                            <div class="car-image-wrapper" style="width: 60px; height: 60px;">
+                                <img src="{{ car.image.url }}" alt="{{ car.model_name }}" class="car-image-hover img-thumbnail thumb-60">
+                            </div>
+                        </a>
                     {% else %}
                         <div class="text-center"><i class="bi bi-image text-muted fs-2"></i></div>
                     {% endif %}
@@ -439,9 +473,7 @@
     </div>
 </div>
 {% else %}
-<div class="alert alert-info" role="alert">
-    No diecast cars in your collection yet. <a href="{% url 'car_create' %}" class="alert-link">Add your first one!</a>
-</div>
+{% include 'inventory/components/empty_state.html' with icon='bi-car-front-fill' title='No Cars in Your Collection Yet' message='Start building your dream diecast collection today! Track values, manage deliveries, and showcase your prized models.' cta_text='Add Your First Car' cta_url='car_create' %}
 {% endif %}
 
 {% endblock %}
@@ -450,6 +482,72 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Animated Counter for Dashboard Metrics
+    document.querySelectorAll('.counter-value').forEach(counter => {
+        const target = parseFloat(counter.getAttribute('data-count'));
+        if (isNaN(target)) return;
+        
+        const decimals = target % 1 !== 0 ? 2 : 0;
+        const prefix = '₹';
+        
+        // Check if it's a currency value (contains rupee symbol in parent)
+        const isCurrency = counter.closest('.metric-value').textContent.includes('₹') || 
+                          counter.parentElement.parentElement.querySelector('.metric-label').textContent.includes('Value') ||
+                          counter.parentElement.parentElement.querySelector('.metric-label').textContent.includes('Spent') ||
+                          counter.parentElement.parentElement.querySelector('.metric-label').textContent.includes('Price');
+        
+        const options = {
+            useEasing: true,
+            useGrouping: true,
+            separator: ',',
+            decimal: '.',
+            prefix: isCurrency ? prefix : '',
+            suffix: ''
+        };
+        
+        const countUp = new CountUp(counter, 0, target, decimals, 2, options);
+        
+        if (!countUp.error) {
+            countUp.start();
+        } else {
+            counter.textContent = isCurrency ? prefix + target.toFixed(decimals) : target;
+        }
+    });
+
+    // Scroll to Top Button
+    const scrollTopBtn = document.getElementById('scroll-top-btn');
+    if (scrollTopBtn) {
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                scrollTopBtn.classList.remove('d-none');
+            } else {
+                scrollTopBtn.classList.add('d-none');
+            }
+        });
+
+        scrollTopBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    // Collapsible Section Icon Rotation
+    const collapseElements = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    collapseElements.forEach(element => {
+        const target = document.querySelector(element.getAttribute('data-bs-target'));
+        if (target) {
+            target.addEventListener('show.bs.collapse', function() {
+                const icon = element.querySelector('.bi-chevron-down');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            });
+            target.addEventListener('hide.bs.collapse', function() {
+                const icon = element.querySelector('.bi-chevron-down');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+        }
+    });
     // Portfolio valuation logic
     const calculateBtn = document.getElementById('calculate-portfolio-btn');
     const resultsContainer = document.getElementById('portfolio-results-container');
@@ -633,6 +731,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 cutout: '60%'
             }
         });
+    }
+
+    // Manufacturer Distribution Pie Chart
+    const mctx = document.getElementById('manufacturerChart');
+    if (mctx) {
+        const manufacturerData = [
+            {% for item in top_manufacturers %}
+                { manufacturer: '{{ item.manufacturer|escapejs }}', count: {{ item.count }} }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        
+        if (manufacturerData.length > 0) {
+            const labels = manufacturerData.map(item => item.manufacturer);
+            const data = manufacturerData.map(item => item.count);
+            
+            // Generate vibrant colors for manufacturers
+            const colors = [
+                'rgba(99,102,241,0.75)',  // Indigo
+                'rgba(236,72,153,0.75)',  // Pink
+                'rgba(16,185,129,0.75)',  // Emerald
+                'rgba(245,158,11,0.75)',  // Amber
+                'rgba(239,68,68,0.75)',   // Red
+                'rgba(59,130,246,0.75)',  // Blue
+                'rgba(168,85,247,0.75)',  // Purple
+                'rgba(20,184,166,0.75)'   // Teal
+            ];
+            
+            const borderColors = colors.map(color => color.replace('0.75', '1'));
+            
+            new Chart(mctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, data.length),
+                        borderColor: borderColors.slice(0, data.length),
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: legendColor,
+                                padding: 10,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 });
 </script>

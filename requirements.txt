@@ -9,6 +9,7 @@ gunicorn
 psycopg2-binary
 forex-python
 pydantic>=2
+openai
 google-generativeai
 razorpay
 dj-database-url
