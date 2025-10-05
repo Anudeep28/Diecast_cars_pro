@@ -289,3 +289,54 @@ class MarketFetchCredit(models.Model):
         if not created:
             credit.check_and_reset_if_needed()
         return credit
+
+
+class NotificationPreferences(models.Model):
+    """
+    User preferences for email notifications
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_preferences')
+    
+    # Email notification settings
+    email_overdue_alerts = models.BooleanField(
+        default=True,
+        help_text='Receive email alerts for overdue deliveries'
+    )
+    email_upcoming_alerts = models.BooleanField(
+        default=True,
+        help_text='Receive email alerts for upcoming deliveries (within 3 days)'
+    )
+    email_daily_summary = models.BooleanField(
+        default=False,
+        help_text='Receive daily email summary of delivery status'
+    )
+    
+    # Alert timing preferences
+    alert_days_before_delivery = models.IntegerField(
+        default=3,
+        help_text='How many days before delivery to send upcoming alerts'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Notification Preference'
+        verbose_name_plural = 'Notification Preferences'
+    
+    def __str__(self):
+        return f"{self.user.username}'s notification preferences"
+    
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        """Get or create notification preferences for user"""
+        prefs, created = cls.objects.get_or_create(
+            user=user,
+            defaults={
+                'email_overdue_alerts': True,
+                'email_upcoming_alerts': True,
+                'email_daily_summary': False,
+                'alert_days_before_delivery': 3
+            }
+        )
+        return prefs

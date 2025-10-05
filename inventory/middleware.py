@@ -53,15 +53,6 @@ class SubscriptionCheckMiddleware:
                         "Your subscription has expired. Please renew to continue using the application."
                     )
                     return redirect('subscription_renew')
-                
-                # Remind users about expiring subscriptions
-                if subscription.end_date and 0 < (subscription.end_date - timezone.now()).days <= 7:
-                    days_remaining = (subscription.end_date - timezone.now()).days
-                    messages.warning(
-                        request,
-                        f"Your subscription will expire in {days_remaining} days. "
-                        f"Please renew to avoid interruption."
-                    )
             except Subscription.DoesNotExist:
                 # If user doesn't have a subscription yet
                 messages.error(

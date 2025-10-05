@@ -32,6 +32,17 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'car_create' %}">Add New Car</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{% url 'dashboard' %}" title="Notifications">
+                            <i class="bi bi-bell{% if total_alerts > 0 %}-fill{% endif %} fs-5"></i>
+                            {% if total_alerts > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ total_alerts }}
+                                <span class="visually-hidden">unread notifications</span>
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ user.username }}
@@ -59,14 +70,6 @@
             </div>
         </div>
     </nav>
-
-    {% if user.is_authenticated and overdue_count > 0 %}
-    <!-- Overdue notification banner -->
-    <div class="alert alert-danger mb-0 rounded-0 text-center" role="alert">
-        <strong>Attention!</strong> You have {{ overdue_count }} overdue item(s) in your collection. 
-        <a href="{% url 'dashboard' %}?status=Overdue" class="alert-link">View them now</a>
-    </div>
-    {% endif %}
 
     <!-- Main content -->
     <div class="container mt-4">

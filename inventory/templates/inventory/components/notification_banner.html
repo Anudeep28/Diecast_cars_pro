@@ -1,0 +1,186 @@
+{% load custom_filters %}
+
+{% if user.is_authenticated and total_alerts > 0 %}
+<div class="notification-banner-wrapper mb-4">
+    <!-- Subscription Expiring Warning -->
+    {% if subscription_expiring %}
+    <div class="alert alert-warning notification-alert mb-2" role="alert">
+        <div class="d-flex align-items-start">
+            <div class="notification-icon me-3">
+                <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="alert-heading mb-1">
+                            <i class="bi bi-calendar-x me-2"></i>Subscription Expiring Soon
+                        </h6>
+                        <p class="mb-2">Your subscription will expire in {{ subscription_days_remaining }} day{{ subscription_days_remaining|pluralize }}. Please renew to avoid interruption.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{% url 'subscription_renew' %}" class="btn btn-sm btn-warning">
+                        <i class="bi bi-arrow-repeat me-1"></i>Renew Subscription
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Overdue Alerts -->
+    {% if overdue_count > 0 %}
+    <div class="alert alert-danger notification-alert mb-2" role="alert">
+        <div class="d-flex align-items-start">
+            <div class="notification-icon me-3">
+                <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="alert-heading mb-1">
+                            <i class="bi bi-clock-history me-2"></i>Overdue Deliveries
+                            <span class="badge bg-danger ms-2">{{ overdue_count }}</span>
+                        </h6>
+                        <p class="mb-2 small">The following items are overdue. Please contact your sellers.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                
+                <div class="notification-items">
+                    {% for car in overdue_cars %}
+                    <div class="notification-item d-flex justify-content-between align-items-center py-2 border-top border-danger border-opacity-25">
+                        <div>
+                            <strong>{{ car.model_name }}</strong>
+                            <span class="text-muted ms-2">• {{ car.manufacturer }}</span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">Due: {{ car.delivery_due_date }}</small>
+                            <span class="badge bg-danger ms-2">
+                                {{ car.delivery_due_date|timesince }} overdue
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{% url 'dashboard' %}?status=Overdue" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-eye me-1"></i>View All Overdue Items
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Upcoming Deliveries Alert -->
+    {% if upcoming_count > 0 %}
+    <div class="alert alert-info notification-alert mb-2" role="alert">
+        <div class="d-flex align-items-start">
+            <div class="notification-icon me-3">
+                <i class="bi bi-bell-fill fs-3"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <h6 class="alert-heading mb-1">
+                            <i class="bi bi-truck me-2"></i>Upcoming Deliveries
+                            <span class="badge bg-info ms-2">{{ upcoming_count }}</span>
+                        </h6>
+                        <p class="mb-2 small">These items are expected within the next 3 days.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                
+                <div class="notification-items">
+                    {% for car in upcoming_cars %}
+                    <div class="notification-item d-flex justify-content-between align-items-center py-2 border-top border-info border-opacity-25">
+                        <div>
+                            <strong>{{ car.model_name }}</strong>
+                            <span class="text-muted ms-2">• {{ car.manufacturer }}</span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">Due: {{ car.delivery_due_date }}</small>
+                            <span class="badge bg-info ms-2">
+                                in {{ car.delivery_due_date|timeuntil }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{% url 'dashboard' %}?status=Shipped" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-eye me-1"></i>View All Upcoming Items
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.notification-banner-wrapper {
+    animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-alert {
+    border-left: 5px solid;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 0.5rem;
+}
+
+.notification-alert.alert-danger {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+}
+
+.notification-alert.alert-info {
+    border-left-color: #0dcaf0;
+    background: linear-gradient(135deg, #f0f9ff 0%, #fff 100%);
+}
+
+.notification-alert.alert-warning {
+    border-left-color: #ffc107;
+    background: linear-gradient(135deg, #fff9e6 0%, #fff 100%);
+}
+
+.notification-icon {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.notification-item {
+    transition: all 0.2s ease;
+}
+
+.notification-item:hover {
+    background-color: rgba(0,0,0,0.02);
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+</style>
+{% endif %}

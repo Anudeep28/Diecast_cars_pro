@@ -1,0 +1,50 @@
+DiecastCollector Pro - Delivery Status Alert
+===========================================
+
+Hello {{ user.username }},
+
+Here's your delivery status update:
+
+SUMMARY
+-------
+Overdue Items: {{ overdue_count }}
+Upcoming (Next 3 Days): {{ upcoming_count }}
+
+{% if overdue_cars %}
+⚠️  OVERDUE DELIVERIES ({{ overdue_count }})
+================================
+
+{% for car in overdue_cars %}
+• {{ car.model_name }}
+  Manufacturer: {{ car.manufacturer }}
+  Seller: {{ car.seller_name }}
+  Due Date: {{ car.delivery_due_date }}
+  Status: {{ car.status }} - OVERDUE
+  ---
+
+{% endfor %}
+ACTION REQUIRED: Please contact the seller(s) to check on the status of these overdue items.
+
+{% endif %}
+{% if upcoming_cars %}
+🔔 UPCOMING DELIVERIES ({{ upcoming_count }})
+====================================
+
+{% for car in upcoming_cars %}
+• {{ car.model_name }}
+  Manufacturer: {{ car.manufacturer }}
+  Seller: {{ car.seller_name }}
+  Expected: {{ car.delivery_due_date }}
+  Status: {{ car.status }}
+  ---
+
+{% endfor %}
+{% endif %}
+
+View your full dashboard: {{ dashboard_url }}
+
+---
+DiecastCollector Pro
+
+This is an automated notification. You're receiving this because you have delivery alerts enabled.
+To manage your notification preferences, visit your profile settings.

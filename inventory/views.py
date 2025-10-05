@@ -42,16 +42,11 @@ def dashboard(request):
     
     # Check for upcoming deliveries and overdue items
     today = timezone.now().date()
-    two_days_from_now = today + timedelta(days=2)
-    
-    # Find cars with delivery due in 2 days
-    upcoming_delivery = cars.filter(delivery_due_date=two_days_from_now, delivered_date__isnull=True, status__in=['Purchased/Paid', 'Shipped', 'Pre-Order'])
-    for car in upcoming_delivery:
-        messages.info(request, f'Delivery for {car.model_name} is due in 2 days!')
     
     # Find overdue cars (delivery_due_date is past and delivered_date is empty)
     overdue_cars = cars.filter(delivery_due_date__lt=today, delivered_date__isnull=True)
-        # Helper to normalize seller names (case- & whitespace-insensitive)
+    
+    # Helper to normalize seller names (case- & whitespace-insensitive)
     def _norm(name: str):
         return (name or "").strip().lower()
 
@@ -64,10 +59,11 @@ def dashboard(request):
 
     # Collect sellers who have overdue items (normalized)
     overdue_sellers = set(_norm(name) for name in overdue_cars.values_list('seller_name', flat=True))
+    
+    # Update overdue status without individual messages (handled by notification banner)
     for car in overdue_cars:
         car.status = 'Overdue'
         car.save()
-        messages.warning(request, f'Delivery for {car.model_name} is overdue!')
     
     # Handle filtering
     status_filter = request.GET.get('status')

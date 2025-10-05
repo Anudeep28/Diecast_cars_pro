@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import DiecastCar, CarMarketLink, MarketPrice, MarketFetchCredit, Subscription, EmailVerificationToken
+from .models import (
+    DiecastCar, CarMarketLink, MarketPrice, MarketFetchCredit, 
+    Subscription, EmailVerificationToken, NotificationPreferences
+)
 
 @admin.register(DiecastCar)
 class DiecastCarAdmin(admin.ModelAdmin):
@@ -160,5 +163,28 @@ class EmailVerificationTokenAdmin(admin.ModelAdmin):
         }),
         ('Timestamps', {
             'fields': ('created_at',)
+        }),
+    )
+
+
+@admin.register(NotificationPreferences)
+class NotificationPreferencesAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email_overdue_alerts', 'email_upcoming_alerts', 'email_daily_summary', 'alert_days_before_delivery')
+    list_filter = ('email_overdue_alerts', 'email_upcoming_alerts', 'email_daily_summary')
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Email Notification Settings', {
+            'fields': ('email_overdue_alerts', 'email_upcoming_alerts', 'email_daily_summary')
+        }),
+        ('Alert Timing', {
+            'fields': ('alert_days_before_delivery',)
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
         }),
     )
